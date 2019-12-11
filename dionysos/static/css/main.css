@@ -1,0 +1,14 @@
+body {
+    background: black;
+    color: white;
+    font-family: sans-serif;
+}
+
+a {
+    color: skyblue;
+    text-decoration: none;
+}
+
+h1 {
+    font-weight: normal;
+}

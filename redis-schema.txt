@@ -1,0 +1,20 @@
+GLOBAL
+
+- user-sids: hash mapping user ID to their latest socket ID
+
+
+GAME-SPECIFIC: these are prefixed by 'game:{game_id}:'
+
+- deck: list containing the current deck, from top to bottom
+- discard: list containg the discard pile, from oldest to newest
+- current-player: user ID
+- player-order: list
+- turn-skips: hash mapping user ID to a count of turns to be skipped
+- active-all-cards: hash mapping card ID to duration
+                    (see cards.sql for explanation of duration)
+
+
+GAME- AND USER-SPECIFIC: prefixed by 'game:{game_id}:user:{user_id}:'
+
+- active-cards: hash mapping card ID to duration
+- use-cards: list of "use" cards in hand 

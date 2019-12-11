@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>{{ config.APPLICATION_NAME }}</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <script>
+    const dionysos = {
+      config: {
+        adminEmail: {{ config.ADMIN_EMAIL|tojson }},
+        csrfCookie: {{ config.CSRF_COOKIE|tojson }},
+        csrfDataKey: {{ config.CSRF_DATA_KEY|tojson }},
+        csrfHeader: {{ config.CSRF_HEADER|tojson }},
+        maxPlayersDefault: {{ config.MAX_PLAYERS_DEFAULT|tojson}},
+        maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
+        maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }}
+      },
+      paths: {
+        login: {{ url_for('login')|tojson }},
+        logout: {{ url_for('logout')|tojson }},
+        cards: {{ url_for('cards')|tojson }},
+        games: {{ url_for('games')|tojson }},
+        cardImgDir: {{ url_for('static', filename=config.CARDS_URL)|tojson }},
+        cardBaseDir: {{ url_for('static', filename=config.CARD_BASES_URL)|tojson }}
+      },
+      user: {% if user %}{
+        id: {{ user.id|tojson }},
+        name: {{ user.name|tojson }}
+      }{% else %}null{% endif %}
+    };
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.2.1/js.cookie.min.js" integrity="sha256-oE03O+I6Pzff4fiMqwEGHbdfcW7a3GRRxlL+U49L5sA=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.slim.min.js" integrity="sha256-pasqAKBDmFT4eHoN2ndd6lN370kFiGUFyTiUHWhU7k8=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.0/knockout-min.js" integrity="sha256-Tjl7WVgF1hgGMgUKZZfzmxOrtoSf8qltZ9wMujjGNQk=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.slim.js" integrity="sha256-Dul4c09cdrWKXVtallPxF558lwxMwCC8dXJdZ0PVW54=" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</head>
+<body>
+<h1>{{ config.APPLICATION_NAME }} <a href="https://github.com/pettinen/dionysos">(git)</a></h1>
+
+<div id="settings">
+  <div style="float: right;">
+  <h2>Current user</h2>
+  <ul>
+    <li>ID: <span data-bind="text: user() ? user().id : 'none'"></span></li>
+    <li>Name: <span data-bind="text: user() ? user().name : 'none'"></span></li>
+  </ul>
+  </div>
+
+  <h2>Settings</h2>
+  <p>Test users: Doris, Jorma, Sisu, Tapio, Valdemar</p>
+  <p>(password = username in lowercase)</p>
+  <!-- ko if: user -->
+  <form data-bind="submit: logout">
+    <button type="submit">Logout</button>
+  </form>
+  <!-- /ko -->
+  <!-- ko ifnot: user -->
+  <form data-bind="submit: login">
+    <label>Username: <input type="text" value="{{ user.name }}" data-bind="value: username"></label><br>
+    <label>Password: <input type="password" data-bind="value: password"></label><br>
+    <button type="submit">Login</button>
+  </form>
+  <!-- /ko -->
+</div>
+
+<div id="games-list">
+  <h2>Games</h2>
+  <ul data-bind="foreach: games">
+    <li>
+      <strong data-bind="text: name"></strong> by <span data-bind="text: creator.name"></span> (<span data-bind="text: playerCount"></span>/<span data-bind="text: maxPlayers"></span> players)
+      <form data-bind="if: canJoin, submit: join">
+        <label data-bind="if: passwordProtected"><input type="text" data-bind="value: password"></label>
+        <button type="submit">Join</button>
+      </form>
+    </li>
+  </ul>
+
+  <!-- ko if: canCreateGame -->
+  <form data-bind="submit: createGame">
+    <label>Name: <input type="text" data-bind="value: newGame.name"></label><br>
+    <label>Password: <input type="text" data-bind="value: newGame.password"></label><br>
+    <label>Max players:
+      <select data-bind="value: newGame.maxPlayers">
+      {%- for n in range(config.MAX_PLAYERS_MIN, config.MAX_PLAYERS_MAX + 1) %}
+        <option value="{{ n }}">{{ n }}</option>
+      {%- endfor %}
+      </select>
+    </label>
+    <button type="submit">Create new game</button>
+  </form>
+  <!-- /ko -->
+</div>
+
+<div id="current-game" data-bind="if: game">
+  <div style="float: right;">
+    <h2>Current game</h2>
+    <p>Players:</p>
+    <ul data-bind="foreach: players">
+      <li data-bind="text: name"></li>
+    </ul>
+
+    <!-- ko if: currentPlayer -->
+    <p>In turn: <!-- ko text: currentPlayer().name --><!-- /ko --></p>
+    <!-- /ko -->
+
+    <p>Active cards (all):</p>
+    <ul data-bind="foreach: activeCards('all')">
+      <li data-bind="text: name"></li>
+    </ul>
+
+    <!-- ko foreach: players -->
+    <p>Active cards (<!-- ko text: name --><!-- /ko -->):</p>
+    <ul data-bind="foreach: $parent.activeCards(id)">
+      <li data-bind="text: name"></li>
+    </ul>
+    <!-- /ko -->
+
+    <p>Use cards:</p>
+    <ul data-bind="foreach: useCards">
+      <li>
+        <!-- ko text: name --><!-- /ko -->
+        <button type="button" data-bind="click: use">Use</button>
+      </li>
+    </ul>
+
+    <button type="button" data-bind="click: leave">Leave game</button>
+    <button type="button" data-bind="click: start, visible: canStart">Start game</button>
+    <button type="button" data-bind="click: drawCard, visible: canDraw">Draw card</button>
+  </div>
+  <!-- ko if: lastCard -->
+  <div data-bind="using: lastCard">
+    <h2 data-bind="text: name"></h2>
+    <p data-bind="text: text"></p>
+    <img alt="" data-bind="attr: {src: $parent.cardImgURL(imgURL)}">
+    <img alt="" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}">
+  </div>
+  <!-- /ko -->
+</div>
+</body>
+</html>

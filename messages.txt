@@ -1,0 +1,166 @@
+HTTP
+
+POST /login
+- body: {
+    username: string,
+    password: string
+  }
+- return on success: {
+    success: true
+  }
+- return on failure: {
+    success: false,
+    reason: <
+      already-logged-in,
+      json-loading-failed,
+      empty-username,
+      empty-password,
+      db-error,
+      wrong-credentials
+    >
+  }
+
+
+FROM CLIENT TO SERVER
+
+create-game
+- argument: {
+    name: string,
+    maxPlayers: int,
+    password: string [optional]
+  }
+- return on success: {
+    success: true,
+    id: game_id
+  }
+- return on failure: {
+    success: false,
+    reason: <
+      not-logged-in,
+      invalid-arguments,
+      already-in-game,
+      invalid-game-name,
+      invalid-max-players,
+      invalid-game-password,
+      insert-failed
+    >
+  }
+
+
+join-game
+- argument: {
+    id: int,
+    password: string [optional]
+  }
+- return on success: {
+    success: true,
+    players: [list of players]
+  }
+- return on failure: {
+    success: false,
+    reason: <
+      not-logged-in,
+      already-in-game,
+      invalid-arguments,
+      invalid-game-id,
+      db-error,
+      game-started,
+      game-full,
+      password-required,
+      invalid-password
+    >
+  }
+
+start-game
+- arguments: none
+- return on success: {
+    success: true
+  }
+- return on failure: {
+    success: false,
+    reason: <
+      not-logged-in,
+      invalid-arguments,
+      not-in-game,
+      db-error,
+      game-already-started,
+      invalid-game-id,
+      not-creator
+    >
+  }
+
+leave-game
+- arguments: none
+- return on success: {
+    success: true
+  }
+- return on failure: {
+    success: false,
+    reason: <
+      not-logged-in,
+      invalid-arguments,
+      not-in-game,
+      db-error
+    >
+  }
+
+draw-card
+...
+
+
+FROM SERVER TO ALL CLIENTS
+
+game-started
+- argument: { id }
+
+game-deleted
+- argument: { id }
+
+game-updated
+- argument: { id, playerCount }
+
+card-drawn
+- argument: { cardID, userID }
+
+add-active-card
+- argument: { userID, cardID }
+- note: userID can be 'all'
+
+remove-active-card
+- argument: { userID, cardID }
+- note: userID can be 'all'
+
+
+FROM SERVER TO ROOM game-{id}
+
+joined-game
+- argument: { id: playerID, name  }
+
+left-game
+- argument: { id: playerID }
+
+new-turn
+- argument: { id: playerID }
+
+start-game
+- no arguments
+
+player-order-changed
+- argument: [player1_id, player2_id, ...]
+
+game-ended
+- no arguments
+
+card-drawn
+- argument: { cardID, userID }
+
+use-card-drawn
+- argument: { userID }
+
+add-active-card
+- argument: { cardID, userID }
+- note: userID may be 'all'
+
+remove-active-card
+- argument: { cardID, userID }
+- note: userID may be 'all'

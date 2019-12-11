@@ -1,0 +1,9 @@
+uwsgi:
+    socket: /run/dionysos/dionysos.sock
+    chmod-socket: 660
+    manage-script-name: true
+    mount: /=dionysos:app
+    uid: dionysos
+    gid: http
+    gevent: 1000
+    http-websockets: true
