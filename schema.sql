@@ -1,14 +1,14 @@
 DROP TABLE IF EXISTS "users", "games", "users_games", "card_types", "cards";
 
 CREATE TABLE "users" (
-    "id" serial PRIMARY KEY,
+    "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     "name" text NOT NULL CHECK ("name" <> ''),
     "password_hash" text NOT NULL
 );
 CREATE UNIQUE INDEX ON "users" (lower("name"));
 
 CREATE TABLE "games" (
-    "id" serial PRIMARY KEY,
+    "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     "name" text NOT NULL,
     "password_hash" text,
     "creator" integer NOT NULL REFERENCES "users" ("id"),
@@ -30,8 +30,8 @@ CREATE TABLE "card_types" (
 );
 
 CREATE TABLE "cards" (
-    "id" serial PRIMARY KEY,
-    "text_id" text UNIQUE CHECK ("text_id" <> ''),
+    "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    "text_id" text UNIQUE NOT NULL CHECK ("text_id" <> ''),
     "type" integer NOT NULL REFERENCES "card_types" ("id"),
     "name" text NOT NULL CHECK ("name" <> ''),
     "text" text NOT NULL CHECK ("text" <> ''),
