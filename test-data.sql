@@ -10,7 +10,7 @@ INSERT INTO "users" ("name", "password_hash") VALUES
 
 
 INSERT INTO "card_types" ("id", "name", "base_url") VALUES
-    (1, 'All', 'all.webp'),
-    (2, 'Use', 'use.webp'),
-    (3, 'Permanent', 'permanent.webp'),
-    (4, 'Action', 'action.webp');
+    ('act', 'Action', 'action.webp'),
+    ('all', 'All', 'all.webp'),
+    ('perm', 'Permanent', 'permanent.webp'),
+    ('use', 'Use', 'use.webp');

@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS "users", "games", "users_games", "card_types", "cards";
+DROP TABLE IF EXISTS "users", "games", "users_games", "card_types", "all_cards", "cards";
 
 CREATE TABLE "users" (
     "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -24,15 +24,25 @@ CREATE TABLE "users_games" (
 CREATE INDEX ON "users_games" ("game_id");
 
 CREATE TABLE "card_types" (
-    "id" integer PRIMARY KEY,
+    "id" text PRIMARY KEY CHECK ("id" <> ''),
     "name" text NOT NULL,
     "base_url" text NOT NULL
+);
+
+CREATE TABLE "all_cards" (
+    "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    "text_id" text UNIQUE NOT NULL CHECK ("text_id" <> ''),
+    "type" text NOT NULL REFERENCES "card_types" ("id"),
+    "name" text NOT NULL CHECK ("name" <> ''),
+    "text" text NOT NULL CHECK ("text" <> ''),
+    "visibility" text NOT NULL CHECK ("visibility" IN ('all', 'player')),
+    "duration" integer NOT NULL
 );
 
 CREATE TABLE "cards" (
     "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     "text_id" text UNIQUE NOT NULL CHECK ("text_id" <> ''),
-    "type" integer NOT NULL REFERENCES "card_types" ("id"),
+    "type" text NOT NULL REFERENCES "card_types" ("id"),
     "name" text NOT NULL CHECK ("name" <> ''),
     "text" text NOT NULL CHECK ("text" <> ''),
     "visibility" text NOT NULL CHECK ("visibility" IN ('all', 'player')),
