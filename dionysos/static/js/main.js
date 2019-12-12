@@ -360,11 +360,11 @@ jQuery($ => {
                 this[property] = data[property];
         }
         use() {
-            if (currentGame.game() === null) {
+            if (!currentGame.inGame()) {
                 showMessage('not-in-game');
                 return;
             }
-            if (currentGame.useCards.indexOf(this) === -1) {
+            if (!currentGame.useCards().includes(this)) {
                 showMessage('card-not-in-hand');
                 return;
             }
@@ -374,6 +374,7 @@ jQuery($ => {
             });
         }
     }
+
     const cards = new Map();
     fetch(app.paths.cards)
         .then(response => response.json())
