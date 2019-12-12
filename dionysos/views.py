@@ -23,6 +23,24 @@ def index():
     return response
 
 
+@app.route('/cards')
+def cards_list():
+    cur = db.cursor()
+    cur.execute('SELECT id, name FROM card_types ORDER BY name;')
+    def quote(name):
+        if name in ['Use', 'All']:
+            name = f'\u201C{name}\u201D'
+        return name
+    card_types = [{'id': id, 'name': quote(name)} for id, name in cur.fetchall()]
+
+    cards = {type['id']: [] for type in card_types}
+    cur.execute('SELECT type, name, text FROM all_cards ORDER BY text_id;')
+    for type, name, text in cur:
+        cards[type].append({'name': name, 'text': text})
+    cur.close()
+    return render_template('cards-list.html', cards=cards, card_types=card_types)
+
+
 @app.route('/cards.json')
 def cards():
     cur = db.cursor()

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>List of cards</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: sans-serif;
+    }
+    a {
+      text-decoration: none;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    thead {
+      border-bottom: 2px solid black;
+    }
+    th {
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+<a href="/">&larr; Back to game</a>
+<h1>List of cards</h1>
+{% for type in card_types %}
+<h2>{{ type.name }} cards</h2>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Text</th></tr>
+  </thead>
+  <tbody>
+{%- for card in cards[type.id] %}
+    <tr><th>{{ card.name }}</th><td>{{ card.text }}</td></tr>
+{%- endfor %}
+  </tbody>
+</table>
+{% endfor %}
+</body>
+</html>
