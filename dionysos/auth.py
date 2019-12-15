@@ -12,6 +12,13 @@ from .game import Game
 from .utils import fail
 
 
+def _check_origin():
+    if 'Origin' in request.headers:
+        if request.headers['Origin'] != f'{request.scheme}://{request.host}':
+            return False
+    return True
+
+
 def _get_user_id_from_jwt():
     decoded_token = jwt.decode(request.cookies[app.config['JWT_COOKIE']],
         app.config['SECRET_KEY'], algorithms=[app.config['JWT_ALGORITHM']])
@@ -23,6 +30,9 @@ def _get_user_id_from_jwt():
 def check_csrf_data(func):
     @wraps(func)
     def check_csrf(*args, **kwargs):
+        if not _check_origin():
+            return fail('origin-check-failed')
+
         if (len(args) == 0
                 or not isinstance(args[0], dict)
                 or app.config['CSRF_DATA_KEY'] not in args[0]
@@ -37,6 +47,9 @@ def check_csrf_data(func):
 def check_csrf_header(func):
     @wraps(func)
     def check_csrf(*args, **kwargs):
+        if not _check_origin():
+            return fail('origin-check-failed')
+
         if (app.config['CSRF_HEADER'] not in request.headers
                 or app.config['CSRF_COOKIE'] not in request.cookies):
             return fail('missing-csrf-token')
@@ -76,7 +89,6 @@ def login_required(func):
         try:
             user_id = _get_user_id_from_jwt()
         except jwt.PyJWTError as e:
-            print(repr(e))
             return fail('invalid-jwt', 401)
         if user_id is None:
             return fail('invalid-jwt-payload', 401)
