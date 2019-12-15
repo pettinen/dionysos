@@ -9,6 +9,7 @@ jQuery($ => {
         showMessage(`Unexpected error (${reason}). If your game is broken or you have`
             + ` more information about this bug, please contact ${app.config.adminEmail}`);
     };
+    const log = console.log;
     const showMessages = function(msgs) {
         msgs.forEach(msg => showMessage(msg));
     };
@@ -228,8 +229,10 @@ jQuery($ => {
             socket.emit('draw-card', csrf(), response => {
                 if(response.success) {
                     const card = cards.get(response.id);
-                    if (!card)
-                        return; // TODO: log this
+                    if (!card) {
+                        log('invalid-card', 'draw-card');
+                        return;
+                    }
                     this.lastCard(card);
                     showMessage('card-drawn-self', card);
                 } else {
@@ -394,19 +397,19 @@ jQuery($ => {
     socket.on('game-updated', data => {
         console.log(`Game ${data.id} now has ${data.playerCount} players`);
         const game = gamesList.game(data.id);
-        if (game) {
+        if (game)
             game.playerCount(data.playerCount);
-        } else {
-        } // TODO: log this
+        else
+            log('invalid-game', 'game-updated');
     });
 
     socket.on('game-started', data => {
         console.log(`Game ${data.id} has started`);
         const game = gamesList.game(data.id);
-        if (game) {
+        if (game)
             game.started(true)
-        } else {
-        } // TODO: log this
+        else
+            log('invalid-game', 'game-started');
     });
 
     socket.on('game-deleted', data => {
@@ -425,9 +428,9 @@ jQuery($ => {
     });
 
     currentGame.on('game-left', data => {
-        const players = currentGame.players.remove(player => player.id === data.id);
-        if (players.length !== 1) {
-        } // TODO: log this
+        const players = currentGame.players.remove(player => player.id === data.userID);
+        if (players.length !== 1)
+            log('invalid-player', 'game-left', players);
         for (const player of players) {
             if (player.id !== settings.user().id)
                 showMessage('game-left-other', player);
@@ -435,10 +438,12 @@ jQuery($ => {
     });
 
     currentGame.on('new-turn', data => {
-        const player = currentGame.player(data.id);
-        if (!player)
-            return; // TODO: log this
-        console.log(`It is now ${currentGame.player(data.id).name}'s turn.`);
+        const player = currentGame.player(data.userID);
+        if (!player) {
+            log('invalid-player', 'new-turn');
+            return;
+        }
+        console.log(`It is now ${player.name}'s turn.`);
         currentGame.currentPlayer(player);
     });
 
@@ -452,17 +457,19 @@ jQuery($ => {
         const players = currentGame.players.removeAll();
         for (const id of playerOrder) {
             const player = players.find(player => id === player.id);
-            if (player) {
+            if (player)
                 currentGame.players.push(player);
-            } else {
-            } // TODO: log this
+            else
+                log('invalid-player', 'player-order-changed');
         }
     });
 
     currentGame.on('private-card-drawn', data => {
         const player = currentGame.player(data.userID);
-        if (!player)
-            return; // TODO: log this
+        if (!player) {
+            log('invalid-player', 'private-card-drawn');
+            return;
+        }
         if (settings.user().id !== player.id)
             showMessage('private-card-drawn', player);
     });
@@ -470,30 +477,36 @@ jQuery($ => {
     currentGame.on('card-drawn', data => {
         const card = cards.get(data.cardID);
         const player = currentGame.player(data.userID);
-        if (!card || !player)
-            return; // TODO: log this
+        if (!card || !player) {
+            log('invalid-data', 'card-drawn', card, player);
+            return;
+        }
         if (player.id !== settings.user().id)
             showMessage('card-drawn-other', card, player);
     });
 
     currentGame.on('active-card-added', data => {
         const card = cards.get(data.cardID);
-        if (!card)
-            return; // TODO: log this
+        if (!card) {
+            log('invalid-card', 'active-card-added');
+            return;
+        }
         currentGame.activeCards(data.userID).push(card);
     });
 
     currentGame.on('active-card-removed', data => {
         const removedCards = currentGame.activeCards(data.userID).remove(
             card => card.id === data.cardID);
-        if (!removedCards.length) {
-        } // TODO: log this
+        if (!removedCards.length)
+            log('invalid-card', 'active-card-removed');
     });
 
     currentGame.on('use-card-added', data => {
-        const card = cards.get(data.id);
-        if (!card)
-            return; // TODO: log this
+        const card = cards.get(data.cardID);
+        if (!card) {
+            log('invalid-card', 'use-card-added');
+            return;
+        }
         currentGame.useCards.push(card);
     });
 
@@ -501,40 +514,50 @@ jQuery($ => {
         // TODO: Currently removes all copies of a card.
         //       This becomes a problem if we want to have duplicates of cards.
         //       Same problem (though less severe) exists with active-card-removed.
-        const removedCards = currentGame.useCards.remove(card => card.id === data.id);
-        if (!removedCards.length) {
-        } // TODO: log this
+        const removedCards = currentGame.useCards.remove(card => card.id === data.cardID);
+        if (!removedCards.length)
+            log('invalid-card', 'use-card-removed');
     });
 
     currentGame.on('card-used', data => {
         const card = cards.get(data.cardID);
         const player = currentGame.player(data.userID);
-        if (!card || !player)
-            return; // TODO: log this
+        if (!card || !player) {
+            log('invalid-data', 'card-used', card, player);
+            return;
+        }
         showMessage('card-used', card, player);
     });
 
     currentGame.on('turn-skipped', data => {
-        const player = currentGame.player(data.id);
-        if (!player)
-            return; // TODO: log this
+        const player = currentGame.player(data.userID);
+        if (!player) {
+            log('invalid-player', 'turn-skipped');
+            return;
+        }
         showMessage('turn-skipped', player, data.skipsLeft);
     });
 
     currentGame.on('spidey-sense-tingling', data => {
-        const card = cards.get(data.id);
-        if (!card)
-            return; // TODO: log this
+        const card = cards.get(data.cardID);
+        if (!card) {
+            log('invalid-card', 'spidey-sense-tingling');
+            return;
+        }
         showMessage('spidey-sense-tingling', card);
     });
 
     currentGame.on('discard', data => {
         const card = cards.get(data.cardID);
         const player = currentGame.player(data.userID);
-        if (!card || !player)
-            return; // TODO: log this
+        if (!card || !player) {
+            log('invalid-data', 'discard', card, player);
+            return;
+        }
         showMessage('discard', card, player);
     });
 
-    currentGame.on('card-effect', data => showMessage(data.message));
+    currentGame.on('card-effect', data => {
+        showMessage(data.message)
+    });
 });
