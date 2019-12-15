@@ -6,9 +6,11 @@ CSRF_HEADER = 'X-CSRF-Token'
 CSRF_DATA_KEY = 'csrf'
 JWT_ALGORITHM = 'HS512'
 JWT_COOKIE = 'jwt'
+PREFERRED_URL_SCHEME = 'https'
 PSYCOPG2_DB = 'dbname=dionysos'
 REDIS_URL = 'unix:///run/redis/redis.sock?db=0'
 SECRET_KEY = b'CHANGE THIS'
+SERVER_NAME = 'dionysos.jeremi.as'
 SESSION_COOKIE_SECURE = True
 SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg2:///dionysos'
 SQLALCHEMY_ECHO = True

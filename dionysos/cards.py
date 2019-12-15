@@ -125,7 +125,7 @@ def spidey_sense(game):
         if redis_db.hexists(key, card.id):
             next_card = redis_db.lindex(game.redis_key('deck'), 0)
             if next_card is not None:
-                User(user_id).emit('spidey-sense-tingling', {'id': int(next_card)})
+                User(user_id).emit('spidey-sense-tingling', {'cardID': int(next_card)})
 
 
 after_draw_handlers = [
