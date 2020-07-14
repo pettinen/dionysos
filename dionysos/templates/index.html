@@ -12,33 +12,41 @@
         csrfCookie: {{ config.CSRF_COOKIE|tojson }},
         csrfDataKey: {{ config.CSRF_DATA_KEY|tojson }},
         csrfHeader: {{ config.CSRF_HEADER|tojson }},
+        maxCreatedGames: {{ config.MAX_CREATED_GAMES|tojson }},
         maxPlayersDefault: {{ config.MAX_PLAYERS_DEFAULT|tojson}},
         maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
         maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }}
       },
       paths: {
+        index: {{ url_for('index')|tojson }},
         login: {{ url_for('login')|tojson }},
         logout: {{ url_for('logout')|tojson }},
         cards: {{ url_for('cards')|tojson }},
+        game: id => {{ url_for('index', game_id='GAME_ID')|tojson }}.replace('GAME_ID', id),
         games: {{ url_for('games')|tojson }},
         cardImgDir: {{ url_for('static', filename=config.CARDS_URL)|tojson }},
         cardBaseDir: {{ url_for('static', filename=config.CARD_BASES_URL)|tojson }}
       },
-      user: {% if user %}{
+      initialUser: {% if user %}{
         id: {{ user.id|tojson }},
         name: {{ user.name|tojson }}
-      }{% else %}null{% endif %}
+      }{% else %}null{% endif %},
+      initialGame: {% if game_id %}{{ game_id|tojson }}{% else %}null{% endif %},
+      language: 'eng',
+      messages: {}
     };
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.2.1/js.cookie.min.js" integrity="sha256-oE03O+I6Pzff4fiMqwEGHbdfcW7a3GRRxlL+U49L5sA=" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.slim.min.js" integrity="sha256-pasqAKBDmFT4eHoN2ndd6lN370kFiGUFyTiUHWhU7k8=" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.0/knockout-min.js" integrity="sha256-Tjl7WVgF1hgGMgUKZZfzmxOrtoSf8qltZ9wMujjGNQk=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.1/knockout-latest.min.js" integrity="sha512-vs7+jbztHoMto5Yd/yinM4/y2DOkPLt0fATcN+j+G4ANY2z4faIzZIOMkpBmWdcxt+596FemCh9M18NUJTZwvw==" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.slim.js" integrity="sha256-Dul4c09cdrWKXVtallPxF558lwxMwCC8dXJdZ0PVW54=" crossorigin="anonymous"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/messages-eng.js') }}"></script>
 </head>
 <body>
-<h1>{{ config.APPLICATION_NAME }} (<a href="https://github.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
-
+<h1>{{ config.APPLICATION_NAME }} &ndash; a party game for drunken people (<a href="https://github.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
+<p>Yes, this looks awful. Which is why I&rsquo;m not a designer. Also I&rsquo;m still building the backend.</p>
+<p>Don&rsquo;t try to play this using anything older than the latest versions of Firefox or Chrome. It&rsquo;s gonna break (even more).</p>
 <div id="settings">
   <div style="float: right;">
   <h2>Current user</h2>
@@ -65,21 +73,28 @@
   <!-- /ko -->
 </div>
 
-<div id="games-list">
+<div id="games">
+  <div id="games-list" data-bind="if: passwordPrompt() === null">
   <h2>Games</h2>
   <ul data-bind="foreach: games">
     <li>
       <strong data-bind="text: name"></strong> by <span data-bind="text: creator.name"></span> (<span data-bind="text: playerCount"></span>/<span data-bind="text: maxPlayers"></span> players)
-      <form data-bind="if: canJoin, submit: join">
-        <label data-bind="if: passwordProtected"><input type="text" data-bind="value: password"></label>
-        <button type="submit">Join</button>
+      <form data-bind="if: canJoin, submit: tryJoin">
+        <button type="submit">Join<!-- ko if: passwordProtected --> (private)<!-- /ko --></button>
       </form>
     </li>
   </ul>
+  </div>
+  <form data-bind="if: passwordPrompt() !== null, submit: joinGame">
+    <button data-bind="click: cancelPasswordPrompt">&larr; back</button>
+    <label>Game password: <input type="text" data-bind="value: gamePassword"></label>
+    <button type="submit">Submit</button>
+  </form>
 
   <!-- ko if: canCreateGame -->
+  <h3>New game</h3>
   <form data-bind="submit: createGame">
-    <label>Name: <input type="text" data-bind="value: newGame.name"></label><br>
+    <label>Name: <input type="text" id="gameName" data-bind="value: newGame.name"></label><br>
     <label>Password: <input type="text" data-bind="value: newGame.password"></label><br>
     <label>Max players:
       <select data-bind="value: newGame.maxPlayers">
@@ -96,6 +111,7 @@
 <div id="current-game" data-bind="if: game">
   <div style="float: right;">
     <h2>Current game</h2>
+    <p>Link: <a data-bind="text: url, attr: { href: url }"></a></p>
     <p>Players:</p>
     <ul data-bind="foreach: players">
       <li data-bind="text: name"></li>
@@ -127,6 +143,7 @@
 
     <button type="button" data-bind="click: leave">Leave game</button>
     <button type="button" data-bind="click: start, visible: canStart">Start game</button>
+    <button type="button" data-bind="click: end, visible: canEnd">End game</button>
     <button type="button" data-bind="click: drawCard, visible: canDraw">Draw card</button>
   </div>
   <!-- ko if: lastCard -->

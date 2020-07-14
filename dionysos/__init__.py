@@ -7,7 +7,7 @@ import psycopg2
 app = Flask(__name__, static_url_path='/')
 app.config.from_object('dionysos.config')
 
-socketio = SocketIO(app, path='/socket', cookieHttpOnly=True)
+socketio = SocketIO(app, path='/socket', cookie=None)
 
 db = psycopg2.connect(app.config['PSYCOPG2_DB'])
 db.autocommit = True

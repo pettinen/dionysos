@@ -14,7 +14,7 @@ from .utils import fail
 
 def _check_origin():
     if 'Origin' in request.headers:
-        if request.headers['Origin'] != f'{request.scheme}://{request.host}':
+        if request.headers['Origin'] != f'{request.scheme}://{app.config["SERVER_NAME"]}':
             return False
     return True
 
@@ -186,6 +186,13 @@ class User():
             leave_room(game.room)
             game.remove_player(self)
         cur.close()
+
+    @property
+    def public_info(self):
+        return {
+            'id': self.id,
+            'name': self.name
+        }
 
     def verify_password(self, password):
         return bcrypt.verify(password, self.password_hash)

@@ -15,9 +15,10 @@ from .utils import fail
 
 
 @app.route('/')
+@app.route('/game/<game_id>')
 @login_optional
-def index():
-    response = make_response(render_template('index.html', user=g.user))
+def index(game_id=None):
+    response = make_response(render_template('index.html', user=g.user, game_id=game_id))
     if not request.cookies.get(app.config['CSRF_COOKIE']):
         set_csrf_cookie(response)
     return response
@@ -63,7 +64,7 @@ def cards():
 @app.route('/games.json')
 def games():
     cur = db.cursor()
-    cur.execute('SELECT id FROM games;')
+    cur.execute('SELECT id FROM games WHERE started = false;')
     games = []
     for game_id, in cur:
         game = Game(game_id)

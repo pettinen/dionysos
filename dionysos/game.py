@@ -73,6 +73,8 @@ class Game:
         return game
 
     def __init__(self, game_id):
+        if not isinstance(game_id, int):
+            raise ValueError('invalid-game-id')
         cur = db.cursor()
         cur.execute('SELECT id, name, password_hash, creator, max_players, started, ended'
                     ' FROM games WHERE id = %s;', [game_id])
@@ -105,6 +107,8 @@ class Game:
             pass # TODO: log this
 
     def add_player(self, user):
+        if self.ended:
+            raise GameError('game-ended')
         if self.started:
             raise GameError('game-started')
         if self.player_count >= self.max_players:
@@ -246,6 +250,9 @@ class Game:
         return socketio.emit(*args, room=self.room)
 
     def end(self):
+        if self.ended:
+            return
+        self.started = True
         self.ended = True
         cur = db.cursor()
         cur.execute('UPDATE games SET ended = true WHERE id = %s;', [self.id])
@@ -253,6 +260,21 @@ class Game:
             pass # TODO: log this
         self.emit('game-ended')
         cur.close()
+
+    def has_player(self, user_id):
+        cur = db.cursor()
+        cur.execute('SELECT users_games.user_id FROM users_games'
+            ' WHERE users_games.game_id = %s;', [self.id])
+        player_ids = [user_id for user_id, in cur]
+        print(type(player_ids[0]))
+        print(player_ids)
+        return user_id in player_ids
+
+    @property
+    def joinable(self):
+        if self.started or self.ended or self.player_count >= self.max_players:
+            return False
+        return True
 
     @property
     def next_player(self):
@@ -330,7 +352,7 @@ class Game:
 
         self.emit('game-left', {'userID': user.id})
 
-        if self.player_count == 0 and self.started:
+        if self.player_count == 0:
             self.delete()
         else:
             new_order = [int(player_id) for player_id in

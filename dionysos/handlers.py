@@ -100,6 +100,19 @@ def start_game(*args):
     return {'success': True}
 
 
+@socketio.on('end-game')
+@login_required
+@check_csrf_data
+def end_game(*args):
+    if len(args) != 1:
+        return fail('invalid-arguments')
+    if g.user.current_game is None:
+        return fail('not-in-game')
+
+    g.user.current_game.end()
+    return {'success': True}
+
+
 @socketio.on('leave-game')
 @login_required
 @check_csrf_data

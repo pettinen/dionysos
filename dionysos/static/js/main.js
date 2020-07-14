@@ -2,16 +2,28 @@ jQuery($ => {
     'use strict';
 
     const app = dionysos;
+    const socket = io({
+        path: '/socket'
+    });
 
-    const socket = io({path: '/socket', transports: ['websocket']});
-    const showMessage = console.log;
-    const showDebugMessage = function(reason) {
-        showMessage(`Unexpected error (${reason}). If your game is broken or you have`
+    const getMessage = function(messageID) {
+        if (app.messages[app.language].has(messageID))
+            return app.messages[app.language].get(messageID);
+        log(`Unknown message ID: ${messageID}`);
+        return messageID;
+    };
+    const showMessage = function(...messages) {
+        console.log("Message:", ...messages);
+    };
+    const showDebugMessage = function(message = '') {
+        if (message)
+            message = ` (${reason})`;
+        showMessage(`Unexpected error${reason}. If your game is broken or you have`
             + ` more information about this bug, please contact ${app.config.adminEmail}`);
     };
     const log = console.log;
-    const showMessages = function(msgs) {
-        msgs.forEach(msg => showMessage(msg));
+    const showMessages = function(messages) {
+        messages.forEach(msg => showMessage(msg));
     };
 
     socket.on('connect', () => showMessage("Connected"));
@@ -22,6 +34,29 @@ jQuery($ => {
     socket.on('error', error => console.log("Error:", error));
     socket.on('disconnect', () => showMessage("Disconnected"));
 
+
+    const afterGamesListLoaded = function() {
+        if (app.initialGame !== null) {
+            const gameID = Number(app.initialGame);
+            if (Number.isNaN(gameID)) {
+                showMessage('invalid-game-id');
+                replaceURL(null);
+                return;
+            }
+            const game = gamesList.game(gameID);
+            if (game === null) {
+                showMessage('invalid-game-id');
+                replaceURL(null);
+                return;
+            }
+            if (!settings.user()) {
+                showMessage('log-in');
+                replaceURL(null);
+                return;
+            }
+            game.tryJoin();
+        }
+    };
 
     const applyBindings = function(viewModel, jQueryObject) {
         jQueryObject.each(function() {
@@ -40,6 +75,10 @@ jQuery($ => {
         return data;
     };
 
+    const emit = function(event, data, ...args) {
+        socket.emit(event, csrf(data), ...args);
+    };
+
     const escapeHTML = function(unsafe) {
         return unsafe
             .replace(/&/g, "&amp;")
@@ -49,6 +88,13 @@ jQuery($ => {
             .replace(/'/g, "&apos;");
     };
 
+    const replaceURL = function(gameID) {
+        if (gameID === null)
+            history.replaceState({gameID: null}, 'Lobby', '/');
+        else
+            history.replaceState({gameID: gameID}, `Game ${gameID}`, app.paths.game(gameID));
+    };
+
 
     class Game {
         constructor(data, playerCount = 0, started = false) {
@@ -56,34 +102,55 @@ jQuery($ => {
                 this[property] = data[property];
             for (const property of ['playerCount', 'started'])
                 this[property] = ko.observable(data[property]);
-            this.password = ko.observable('');
             this.full = ko.pureComputed(() => this.playerCount() >= this.maxPlayers);
             this.canJoin = ko.pureComputed(
                 () => !this.full() && settings.user() && !currentGame.inGame());
         }
 
-        join() {
+        join(password = '') {
             const data = {id: this.id};
             if (this.passwordProtected) {
-                if (typeof this.password() !== 'string' || !this.password().trim()) {
+                if (typeof password !== 'string' || !password.trim()) {
                     showMessage('password-required');
                     return;
                 }
-                data.password = this.password().trim();
-                console.log(`Attempting to join game ${this.id} with password '${this.password()}'`);
+                password = password.trim();
+                data.password = password;
+                console.log(`Attempting to join game ${this.id} with password '${password}'`);
             } else {
                 console.log(`Attempting to join game ${this.id}`);
             }
-            socket.emit('join-game', csrf(data), response => {
+            emit('join-game', data, response => {
                 if (response.success) {
                     currentGame.clear();
                     currentGame.game(this);
                     currentGame.players.push(...response.players.map(player => new User(player)));
+                    replaceURL(this.id);
+                    
+                    if (localStorage.getItem(`game-${this.id}-password`) !== null) {
+                        log("Password found in localStorage");
+                        localStorage.setItem(`game-${this.id}-password`, password.trim());
+                    }
+                    gamesList.passwordPrompt(null);
                     showMessage('game-joined-self');
                 } else {
                     showMessage(response.reason);
                 }
             });
+        }
+
+        tryJoin() {
+            if (this.passwordProtected) {
+                const storedPassword = localStorage.getItem(`game-${this.id}-password`);
+                if (storedPassword === null) {
+                    gamesList.passwordPrompt(this.id);
+                } else {
+                    log("Password found in localStorage");
+                    this.join(storedPassword);
+                }
+            } else {
+                this.join();
+            }
         }
     }
 
@@ -137,6 +204,9 @@ jQuery($ => {
                     // Reconnect to set auth cookies for socket
                     socket.close().open();
                     showMessage('logged-in');
+                    const gameNameInput = $('#gameName');
+                    if (!gameNameInput.val())
+                        gameNameInput.val(`${this.user().name}\u2019s game`);
                 } else {
                     console.log("Login failed:", response);
                     showMessage(response.reason);
@@ -173,13 +243,14 @@ jQuery($ => {
         }
     }
 
-    const settings = new SettingsViewModel(app.user);
+    const settings = new SettingsViewModel(app.initialUser);
     applyBindings(settings, $('#settings'));
 
 
     class CurrentGameViewModel {
         constructor() {
             this.game = ko.observable(null);
+            this.gameLog = ko.observableArray([]);
             this.ended = ko.observable(false);
             this.activeCardsMap = new Map();
             this.useCards = ko.observableArray();
@@ -196,6 +267,12 @@ jQuery($ => {
                 return this.game() && !this.game().started()
                     && this.game().creator.id === settings.user().id;
             });
+            this.canEnd = ko.computed(() => {
+                if (!settings.user() || !this.game())
+                    return false;
+                return this.game().creator.id === settings.user().id;
+            });
+            this.url = ko.pureComputed(() => this.game() === null ? app.paths.index : app.paths.game(this.game().id));
         }
 
         activeCards(userID) {
@@ -226,8 +303,8 @@ jQuery($ => {
                 showMessage('not-in-turn');
                 return;
             }
-            socket.emit('draw-card', csrf(), response => {
-                if(response.success) {
+            emit('draw-card', {}, response => {
+                if (response.success) {
                     const card = cards.get(response.id);
                     if (!card) {
                         log('invalid-card', 'draw-card');
@@ -241,14 +318,42 @@ jQuery($ => {
             });
         }
 
+        end() {
+            if(!this.inGame()) {
+                showMessage('not-in-game');
+                return;
+            }
+            if (!settings.user()) {
+                showMessage('not-logged-in');
+                return;
+            }
+            if (this.game().creator.id !== settings.user().id) {
+                showMessage('not-creator');
+                return;
+            }
+            emit('end-game', {id: this.game().id}, response => {
+                if (!response) {
+                    log('connection-problem');
+                } else if (response.success) {
+                    this.game().ended = true;
+                    showMessage('game-ended');
+                } else {
+                    showMessage(response.reason);
+                }
+            });
+        }
+
         leave() {
             if (!this.inGame()) {
                 showMessage('not-in-game');
                 return;
             }
-            socket.emit('leave-game', csrf(), response => {
-                if (response.success) {
+            emit('leave-game', {id: this.game().id}, response => {
+                if (!response) {
+                    showMessage('connection-problem');
+                } else if (response.success) {
                     this.clear();
+                    replaceURL(null);
                     showMessage('game-left-self');
                 } else {
                     showMessage(response.reason);
@@ -281,7 +386,7 @@ jQuery($ => {
                 showMessages(errors);
                 return;
             }
-            socket.emit('start-game', csrf(), response => {
+            emit('start-game', {id: this.game().id}, response => {
                 if (response.success) {
                     this.game().started(true);
                     showMessage('game-started');
@@ -299,44 +404,63 @@ jQuery($ => {
         constructor(games = []) {
             this.games = ko.observableArray(games);
             this.newGame = {
-                name: ko.observable(''),
+                name: ko.observable(app.initialUser ? `${app.initialUser.name}\u2019s game` : ''),
                 password: ko.observable(''),
                 maxPlayers: ko.observable(app.config.maxPlayersDefault)
             };
-            this.canCreateGame = ko.pureComputed(
-                () => settings.user() && !currentGame.inGame());
+            this.ownGamesMaxed = ko.computed(() => {
+                if (!settings.user())
+                    return true;
+                const count = this.games().filter(game => game.creator.id === settings.user().id).length;
+                return count >= app.config.maxCreatedGames;
+            });
+            this.canCreateGame = ko.computed(() => !this.ownGamesMaxed() && !currentGame.inGame());
+            this.gamePassword = ko.observable('');
+            this.passwordPrompt = ko.observable(null);
+        }
+
+        cancelPasswordPrompt() {
+            this.passwordPrompt(null);
+            this.gamePassword('');
         }
 
         createGame() {
             const errors = [];
             const name = this.newGame.name();
-            if (typeof name !== 'string' || !name.trim())
+            if (typeof name !== 'string' || !name.trim()) {
+                console.log(name);
                 errors.push('invalid-name');
+
+            }
             const maxPlayers = Number(this.newGame.maxPlayers());
             if (!Number.isInteger(maxPlayers)
                     || maxPlayers < app.config.maxPlayersMin
                     || maxPlayers > app.config.maxPlayersMax)
                 errors.push('invalid-max-players');
-            const password = this.newGame.password();
+            let password = this.newGame.password();
             if (typeof password !== 'string')
                 errors.push('invalid-password');
             if (errors.length) {
                 showMessages(errors);
                 return;
             }
+            password = password.trim();
 
-            socket.emit('create-game',
-                csrf({
+            emit('create-game', {
                     name: name.trim(),
-                    password: password.trim(),
+                    password: password,
                     maxPlayers: maxPlayers
-                }),
+                },
                 response => {
                     if (response.success) {
                         const game = gamesList.game(response.id);
                         currentGame.clear();
                         currentGame.game(game);
                         currentGame.players.push(settings.user());
+                        if (password) {
+                            localStorage.setItem(`game-${game.id}-password`, password);
+                            log("Password stored in localStorage");
+                        }
                         showMessage('game-created');
                     } else {
                         showMessage(response.reason);
@@ -348,13 +472,25 @@ jQuery($ => {
         game(id) {
             return this.games().find(game => id === game.id) || null;
         }
+
+        joinGame() {
+            if (this.passwordPrompt() !== null)
+                this.game(this.passwordPrompt()).join(this.gamePassword());
+        }
+
+        async refresh() {
+            fetch(app.paths.games)
+                .then(response => response.json())
+                .then(games => {
+                    this.games([]);
+                    this.games.push(...games.map(game => new Game(game)));
+                });
+        }
     }
     const gamesList = new GamesListViewModel();
-    applyBindings(gamesList, $('#games-list'));
+    applyBindings(gamesList, $('#games'));
 
-    fetch(app.paths.games)
-        .then(response => response.json())
-        .then(games => gamesList.games.push(...games.map(game => new Game(game))));
+    gamesList.refresh().then(afterGamesListLoaded());
 
 
     class Card {
@@ -371,7 +507,7 @@ jQuery($ => {
                 showMessage('card-not-in-hand');
                 return;
             }
-            socket.emit('use-card', csrf({id: this.id}), response => {
+            emit('use-card', {id: this.id}, response => {
                 if (!response.success)
                     showMessage(response.reason);
             });
@@ -407,7 +543,7 @@ jQuery($ => {
         console.log(`Game ${data.id} has started`);
         const game = gamesList.game(data.id);
         if (game)
-            game.started(true)
+            game.started(true);
         else
             log('invalid-game', 'game-started');
     });
@@ -560,4 +696,5 @@ jQuery($ => {
     currentGame.on('card-effect', data => {
         showMessage(data.message)
     });
+
 });
