@@ -13,7 +13,10 @@ jQuery($ => {
         return messageID;
     };
     const showMessage = function(...messages) {
-        console.log("Message:", ...messages);
+        messages.forEach(message => console.log(message));
+    };
+    const gameLog = function(...messages) {
+        currentGame.gameLog.push(...messages);
     };
     const showDebugMessage = function(message = '') {
         if (message)
@@ -26,13 +29,21 @@ jQuery($ => {
         messages.forEach(msg => showMessage(msg));
     };
 
-    socket.on('connect', () => showMessage("Connected"));
+    socket.on('connect', () => {
+        settings.connected(true);
+        showMessage('connected');
+    });
     socket.on('connect_error', error => {
         showMessage('connection-error');
-        console.log(error);
+        console.log("Socket.IO connection error:", error);
     });
-    socket.on('error', error => console.log("Error:", error));
-    socket.on('disconnect', () => showMessage("Disconnected"));
+    socket.on('error', error => {
+        log("Socket.IO error:", error)
+    });
+    socket.on('disconnect', () => {
+        settings.connected(false);
+        showMessage('disconnected');
+    });
 
 
     const afterGamesListLoaded = function() {
@@ -100,7 +111,7 @@ jQuery($ => {
         constructor(data, playerCount = 0, started = false) {
             for (const property of ['id', 'name', 'creator', 'maxPlayers', 'passwordProtected'])
                 this[property] = data[property];
-            for (const property of ['playerCount', 'started'])
+            for (const property of ['playerCount', 'started', 'ended'])
                 this[property] = ko.observable(data[property]);
             this.full = ko.pureComputed(() => this.playerCount() >= this.maxPlayers);
             this.canJoin = ko.pureComputed(
@@ -169,6 +180,7 @@ jQuery($ => {
                 (user === null) ? null : new User(user));
             this.username = ko.observable('');
             this.password = ko.observable('');
+            this.connected = ko.observable(false);
         }
 
         login() {
@@ -204,7 +216,7 @@ jQuery($ => {
                     // Reconnect to set auth cookies for socket
                     socket.close().open();
                     showMessage('logged-in');
-                    const gameNameInput = $('#gameName');
+                    const gameNameInput = $('#newgame-name');
                     if (!gameNameInput.val())
                         gameNameInput.val(`${this.user().name}\u2019s game`);
                 } else {
@@ -250,8 +262,7 @@ jQuery($ => {
     class CurrentGameViewModel {
         constructor() {
             this.game = ko.observable(null);
-            this.gameLog = ko.observableArray([]);
-            this.ended = ko.observable(false);
+            this.gameLog = ko.observableArray(['ayy', 'lmao']);
             this.activeCardsMap = new Map();
             this.useCards = ko.observableArray();
             this.players = ko.observableArray();
@@ -259,20 +270,25 @@ jQuery($ => {
             this.lastCard = ko.observable(null);
             this.inGame = ko.pureComputed(() => Boolean(this.game()));
 
+            this.isCreator = ko.pureComputed(() => {
+                return this.game() && settings.user() && this.game().creator.id === settings.user().id;
+            });
+            this.inProgress = ko.pureComputed(() => {
+                return this.game() && this.game().started() && !this.game().ended();
+            });
             this.canDraw = ko.pureComputed(() => {
-                return this.currentPlayer()
+                return this.inProgress() && this.currentPlayer()
                     && this.currentPlayer().id === settings.user().id;
             });
             this.canStart = ko.pureComputed(() => {
-                return this.game() && !this.game().started()
-                    && this.game().creator.id === settings.user().id;
+                return this.game() && !this.game().started() && !this.game().ended() && this.isCreator()
+                    && this.players().length >= app.config.minPlayersToStart;
             });
-            this.canEnd = ko.computed(() => {
-                if (!settings.user() || !this.game())
-                    return false;
-                return this.game().creator.id === settings.user().id;
+            this.url = ko.pureComputed(() => {
+                if (this.game() === null)
+                    return app.paths.index;
+                return app.paths.game(this.game().id);
             });
-            this.url = ko.pureComputed(() => this.game() === null ? app.paths.index : app.paths.game(this.game().id));
         }
 
         activeCards(userID) {
@@ -286,7 +302,6 @@ jQuery($ => {
 
         clear() {
             this.game(null);
-            this.ended(false);
             this.activeCardsMap.clear();
             this.useCards.removeAll();
             this.players.removeAll();
@@ -312,31 +327,6 @@ jQuery($ => {
                     }
                     this.lastCard(card);
                     showMessage('card-drawn-self', card);
-                } else {
-                    showMessage(response.reason);
-                }
-            });
-        }
-
-        end() {
-            if(!this.inGame()) {
-                showMessage('not-in-game');
-                return;
-            }
-            if (!settings.user()) {
-                showMessage('not-logged-in');
-                return;
-            }
-            if (this.game().creator.id !== settings.user().id) {
-                showMessage('not-creator');
-                return;
-            }
-            emit('end-game', {id: this.game().id}, response => {
-                if (!response) {
-                    log('connection-problem');
-                } else if (response.success) {
-                    this.game().ended = true;
-                    showMessage('game-ended');
                 } else {
                     showMessage(response.reason);
                 }
@@ -388,8 +378,12 @@ jQuery($ => {
             }
             emit('start-game', {id: this.game().id}, response => {
                 if (response.success) {
-                    this.game().started(true);
-                    showMessage('game-started');
+                    if (this.game() === null) {
+                        log("Tried to start a nonexistent game");
+                    } else {
+                        this.game().started(true);
+                        showMessage('game-started');
+                    }
                 } else {
                     showMessage(response.reason);
                 }
@@ -401,22 +395,26 @@ jQuery($ => {
 
 
     class GamesListViewModel {
-        constructor(games = []) {
-            this.games = ko.observableArray(games);
+        constructor() {
+            this.games = ko.observableArray([]);
             this.newGame = {
                 name: ko.observable(app.initialUser ? `${app.initialUser.name}\u2019s game` : ''),
                 password: ko.observable(''),
                 maxPlayers: ko.observable(app.config.maxPlayersDefault)
             };
-            this.ownGamesMaxed = ko.computed(() => {
+            this.ownGamesMaxed = ko.pureComputed(() => {
                 if (!settings.user())
                     return true;
                 const count = this.games().filter(game => game.creator.id === settings.user().id).length;
                 return count >= app.config.maxCreatedGames;
             });
-            this.canCreateGame = ko.computed(() => !this.ownGamesMaxed() && !currentGame.inGame());
+            this.joinableGames = ko.pureComputed(() => {
+                return this.games().filter(game => !game.started());
+            });
+            this.canCreateGame = ko.pureComputed(() => !this.ownGamesMaxed() && !currentGame.inGame());
             this.gamePassword = ko.observable('');
             this.passwordPrompt = ko.observable(null);
+            this.visible = ko.pureComputed(() => !currentGame.inGame());
         }
 
         cancelPasswordPrompt() {
@@ -437,36 +435,39 @@ jQuery($ => {
                     || maxPlayers < app.config.maxPlayersMin
                     || maxPlayers > app.config.maxPlayersMax)
                 errors.push('invalid-max-players');
-            let password = this.newGame.password();
+            let password = this.newGame.password().trim();
             if (typeof password !== 'string')
                 errors.push('invalid-password');
             if (errors.length) {
                 showMessages(errors);
                 return;
             }
-            password = password.trim();
 
-            emit('create-game', {
-                    name: name.trim(),
-                    password: password,
-                    maxPlayers: maxPlayers
-                },
-                response => {
-                    if (response.success) {
-                        const game = gamesList.game(response.id);
-                        currentGame.clear();
-                        currentGame.game(game);
-                        currentGame.players.push(settings.user());
-                        if (password) {
+            const data = {
+                name: name.trim(),
+                maxPlayers: maxPlayers
+            };
+            if (password)
+                data.password = password;
+
+            emit('create-game', data, response => {
+                if (response.success) {
+                    this.refresh().then(() => {
+                        const game = gamesList.game(response.gameID);
+                        if (password)
                             localStorage.setItem(`game-${game.id}-password`, password);
-                            log("Password stored in localStorage");
+                        if (game === null) {
+                            log("Game did not exist after creating it");
+                            return;
                         }
-                        showMessage('game-created');
-                    } else {
-                        showMessage(response.reason);
-                    }
+                        game.join(password);
+                        if (currentGame.game() !== null)
+                            showMessage('game-created');
+                    });
+                } else {
+                    showMessage(response.reason);
                 }
-            );
+            });
         }
 
         game(id) {
@@ -479,7 +480,7 @@ jQuery($ => {
         }
 
         async refresh() {
-            fetch(app.paths.games)
+            await fetch(app.paths.games)
                 .then(response => response.json())
                 .then(games => {
                     this.games([]);
@@ -490,7 +491,7 @@ jQuery($ => {
     const gamesList = new GamesListViewModel();
     applyBindings(gamesList, $('#games'));
 
-    gamesList.refresh().then(afterGamesListLoaded());
+    gamesList.refresh().then(afterGamesListLoaded);
 
 
     class Card {

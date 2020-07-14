@@ -68,7 +68,6 @@ class Game:
         cur.close()
 
         game = cls(game_id)
-        game.add_player(g.user)
         socketio.emit('game-created', game.public_info)
         return game
 
@@ -319,7 +318,8 @@ class Game:
             'passwordProtected': self.password_protected,
             'playerCount': self.player_count,
             'maxPlayers': self.max_players,
-            'started': self.started
+            'started': self.started,
+            'ended': self.ended
         }
 
     def redis_key(self, key):
@@ -373,6 +373,8 @@ class Game:
     def start(self):
         if self.started:
             raise GameError('game-already-started')
+        if self.player_count < app.config['MIN_PLAYERS_TO_START']:
+            raise GameError('not-enough-players')
         self.started = True
         cur = db.cursor()
         cur.execute('UPDATE games SET started = true WHERE id = %s;', [self.id])

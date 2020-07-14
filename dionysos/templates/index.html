@@ -4,6 +4,7 @@
   <title>{{ config.APPLICATION_NAME }}</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
+  <link rel="icon" href="{{ url_for('static', filename='img/favicons/favicon-16x16.png') }}" type="image/png" sizes="16x16">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <script>
     const dionysos = {
@@ -15,7 +16,8 @@
         maxCreatedGames: {{ config.MAX_CREATED_GAMES|tojson }},
         maxPlayersDefault: {{ config.MAX_PLAYERS_DEFAULT|tojson}},
         maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
-        maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }}
+        maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }},
+        minPlayersToStart: {{ config.MIN_PLAYERS_TO_START|tojson }}
       },
       paths: {
         index: {{ url_for('index')|tojson }},
@@ -44,7 +46,7 @@
   <script src="{{ url_for('static', filename='js/messages-eng.js') }}"></script>
 </head>
 <body>
-<h1>{{ config.APPLICATION_NAME }} &ndash; a party game for drunken people (<a href="https://github.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
+<h1><a class="app-name" href="{{ url_for('index') }}">{{ config.APPLICATION_NAME }}</a> &ndash; a party game for drunken people (<a href="https://github.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
 <p>Yes, this looks awful. Which is why I&rsquo;m not a designer. Also I&rsquo;m still building the backend.</p>
 <p>Don&rsquo;t try to play this using anything older than the latest versions of Firefox or Chrome. It&rsquo;s gonna break (even more).</p>
 <div id="settings">
@@ -73,10 +75,10 @@
   <!-- /ko -->
 </div>
 
-<div id="games">
+<div id="games" data-bind="if: visible">
   <div id="games-list" data-bind="if: passwordPrompt() === null">
   <h2>Games</h2>
-  <ul data-bind="foreach: games">
+  <ul data-bind="foreach: joinableGames">
     <li>
       <strong data-bind="text: name"></strong> by <span data-bind="text: creator.name"></span> (<span data-bind="text: playerCount"></span>/<span data-bind="text: maxPlayers"></span> players)
       <form data-bind="if: canJoin, submit: tryJoin">
@@ -94,7 +96,7 @@
   <!-- ko if: canCreateGame -->
   <h3>New game</h3>
   <form data-bind="submit: createGame">
-    <label>Name: <input type="text" id="gameName" data-bind="value: newGame.name"></label><br>
+    <label>Name: <input type="text" id="newgame-name" data-bind="value: newGame.name"></label><br>
     <label>Password: <input type="text" data-bind="value: newGame.password"></label><br>
     <label>Max players:
       <select data-bind="value: newGame.maxPlayers">
@@ -143,17 +145,32 @@
 
     <button type="button" data-bind="click: leave">Leave game</button>
     <button type="button" data-bind="click: start, visible: canStart">Start game</button>
-    <button type="button" data-bind="click: end, visible: canEnd">End game</button>
-    <button type="button" data-bind="click: drawCard, visible: canDraw">Draw card</button>
   </div>
-  <!-- ko if: lastCard -->
-  <div data-bind="using: lastCard">
-    <h2 data-bind="text: name"></h2>
-    <p data-bind="text: text"></p>
-    <img alt="" data-bind="attr: {src: $parent.cardImgURL(imgURL)}">
-    <img alt="" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}">
+
+  <div id="gameplay" data-bind="if: inProgress">
+    <button data-bind="click: drawCard, if: canDraw">Draw card</button>
+
+    <div id="use-cards">
+      <h2>Use cards</h2>
+      <ul data-bind="foreach: useCards">
+        <li>
+          <span class="card-name" data-bind="text: name"></span>
+          <button data-bind="click: use">Use</button>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card" data-bind="with: lastCard">
+      <h2 data-bind="html: name"></h2>
+      <p data-bind="html: text"></p>
+      <img class="card-img" alt="Card image" data-bind="attr: {src: $parent.cardImgURL(imgURL)}">
+      <img class="card-base" alt="Card base" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}">
+    </div>
+
+    <ul id="game-log" data-bind="foreach: gameLog">
+      <li data-bind="text: $data"></li>
+    </ul>
   </div>
-  <!-- /ko -->
 </div>
 </body>
 </html>

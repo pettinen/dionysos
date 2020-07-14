@@ -19,8 +19,8 @@ from .utils import fail
 @login_optional
 def index(game_id=None):
     response = make_response(render_template('index.html', user=g.user, game_id=game_id))
-    if not request.cookies.get(app.config['CSRF_COOKIE']):
-        set_csrf_cookie(response)
+    #if not request.cookies.get(app.config['CSRF_COOKIE']):
+    set_csrf_cookie(response) # always set a new random one
     return response
 
 
@@ -64,7 +64,7 @@ def cards():
 @app.route('/games.json')
 def games():
     cur = db.cursor()
-    cur.execute('SELECT id FROM games WHERE started = false;')
+    cur.execute('SELECT id FROM games;')
     games = []
     for game_id, in cur:
         game = Game(game_id)

@@ -27,21 +27,17 @@ def _get_user_id_from_jwt():
     return decoded_token['userID']
 
 
-def check_csrf_data(func):
-    @wraps(func)
-    def check_csrf(*args, **kwargs):
-        if not _check_origin():
-            return fail('origin-check-failed')
+def check_csrf_data(arg):
+    if not _check_origin():
+        return fail('origin-check-failed')
 
-        if (len(args) == 0
-                or not isinstance(args[0], dict)
-                or app.config['CSRF_DATA_KEY'] not in args[0]
-                or app.config['CSRF_COOKIE'] not in request.cookies):
-            return fail('missing-csrf-token')
-        if request.cookies[app.config['CSRF_COOKIE']] != args[0][app.config['CSRF_DATA_KEY']]:
-            return fail('csrf-token-mismatch')
-        return func(*args, **kwargs)
-    return check_csrf
+    if (not isinstance(arg, dict)
+            or app.config['CSRF_DATA_KEY'] not in arg
+            or app.config['CSRF_COOKIE'] not in request.cookies):
+        return fail('missing-csrf-token')
+    if request.cookies[app.config['CSRF_COOKIE']] != arg[app.config['CSRF_DATA_KEY']]:
+        return fail('csrf-token-mismatch')
+    return True
 
 
 def check_csrf_header(func):
@@ -78,27 +74,54 @@ def login_optional(func):
         g.user = user
         return func(*args, **kwargs)
     return check_jwt
-        
 
-def login_required(func):
-    @wraps(func)
-    def check_jwt(*args, **kwargs):
-        invalid_jwt = fail('invalid-jwt', 401)
-        if app.config['JWT_COOKIE'] not in request.cookies:
-            return fail('no-jwt-cookie', 401)
-        try:
-            user_id = _get_user_id_from_jwt()
-        except jwt.PyJWTError as e:
-            return fail('invalid-jwt', 401)
-        if user_id is None:
-            return fail('invalid-jwt-payload', 401)
-        try:
-            user = User(user_id)
-        except DatabaseError:
-            return fail('no-such-user', 401)
-        g.user = user
-        return func(*args, **kwargs)
-    return check_jwt
+
+def login_required_factory(decorator_type):
+    def decorator(func):
+        @wraps(func)
+        def check(*args, **kwargs):
+            log_msg_start = "User attempted to do something requiring login "
+            failure = fail('not-logged-in', 401)
+            clear_jwt_cookie = False
+
+            if app.config['JWT_COOKIE'] not in request.cookies:
+                # log(log_msg_start + "without a JWT cookie")
+                return failure
+            try:
+                user_id = _get_user_id_from_jwt()
+            except jwt.PyJWTError as e:
+                # log(log_msg_start + "with an invalid JWT")
+              clear_jwt_cookie = True
+              return failure
+            if user_id is None:
+                # log(log_msg_start + "with a JWT not containing a user ID")
+                clear_jwt_cookie = True
+                return failure
+            try:
+                user = User(user_id)
+            except DatabaseError:
+                # log(log_msg_start + "with a JWT containing a nonexistent user ID")
+                clear_jwt_cookie = True
+                return failure
+            g.user = user
+            response = func(*args, **kwargs)
+            if clear_jwt_cookie and decorator_type == 'flask':
+                pass
+                #response.delete_cookie(app.config['JWT_COOKIE'])
+            if decorator_type == 'socketio':
+                if len(args) == 0:
+                    args.append({})
+                csrf_result = check_csrf_data(args[0])
+                if csrf_result != True:
+                    return csrf_result
+            return response
+        return check
+    return decorator
+
+# Decorator for standard Flask routes
+login_required = login_required_factory('flask')
+# Decorator for Socket.IO events
+socket_login_required = login_required_factory('socketio')
 
 
 def set_jwt_cookie(response, user):
@@ -178,7 +201,7 @@ class User():
         cur = db.cursor()
         cur.execute(
             'DELETE FROM users_games WHERE user_id = %s'
-            'RETURNING game_id;', [self.id])
+            ' RETURNING game_id;', [self.id])
         if cur.rowcount > 1:
             pass # TODO: log this
         for game_id, in cur:

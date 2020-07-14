@@ -1,7 +1,7 @@
 from flask import g, request
 
 from . import redis_db, socketio
-from .auth import check_csrf_data, login_optional, login_required
+from .auth import login_optional, socket_login_required
 from .errors import DatabaseError, GameError
 from .game import Card, Game
 from .utils import fail
@@ -23,8 +23,7 @@ def disconnect():
 
 
 @socketio.on('create-game')
-@login_required
-@check_csrf_data
+@socket_login_required
 def create_game(*args):
     if len(args) != 1 or not isinstance(args[0], dict):
         return fail('invalid-arguments')
@@ -48,12 +47,11 @@ def create_game(*args):
     except (DatabaseError, ValueError) as e:
         return fail(e)
 
-    return {'success': True, 'id': game.id}
+    return {'success': True, 'gameID': game.id}
 
 
 @socketio.on('join-game')
-@login_required
-@check_csrf_data
+@socket_login_required
 def join_game(*args):
     if len(args) != 1 or not isinstance(args[0], dict):
         return fail('invalid-arguments')
@@ -81,8 +79,7 @@ def join_game(*args):
 
 
 @socketio.on('start-game')
-@login_required
-@check_csrf_data
+@socket_login_required
 def start_game(*args):
     if len(args) != 1:
         return fail('invalid-arguments')
@@ -101,8 +98,7 @@ def start_game(*args):
 
 
 @socketio.on('end-game')
-@login_required
-@check_csrf_data
+@socket_login_required
 def end_game(*args):
     if len(args) != 1:
         return fail('invalid-arguments')
@@ -114,8 +110,7 @@ def end_game(*args):
 
 
 @socketio.on('leave-game')
-@login_required
-@check_csrf_data
+@socket_login_required
 def leave_game(*args):
     if len(args) != 1:
         return fail('invalid-arguments')
@@ -127,8 +122,7 @@ def leave_game(*args):
 
 
 @socketio.on('draw-card')
-@login_required
-@check_csrf_data
+@socket_login_required
 def draw_card(*args):
     if len(args) != 1:
         return fail('invalid-arguments')
@@ -149,8 +143,7 @@ def draw_card(*args):
 
 
 @socketio.on('use-card')
-@login_required
-@check_csrf_data
+@socket_login_required
 def use_card(*args):
     if len(args) != 1 or not isinstance(args[0], dict) or 'id' not in args[0]:
         return fail('invalid-arguments')

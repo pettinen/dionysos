@@ -21,36 +21,33 @@ POST /login
   }
 
 
-FROM CLIENT TO SERVER
+WEBSOCKET (arguments are json)
 
-create-game
+Argument is a JSON object. All arguments from the client must also include
+the CSRF token specified in config.CSRF_DATA_KEY.
+
+FROM CLIENT TO SERVER, NON-GAMEPLAY
+
+EVENT: create-game
 - argument: {
     name: string,
     maxPlayers: int,
-    password: string [optional]
+    password: string (optional)
   }
 - return on success: {
     success: true,
-    id: game_id
+    gameID: int
   }
 - return on failure: {
     success: false,
-    reason: <
-      not-logged-in,
-      invalid-arguments,
-      already-in-game,
-      invalid-game-name,
-      invalid-max-players,
-      invalid-game-password,
-      insert-failed
-    >
+    reason: string
   }
 
 
 join-game
 - argument: {
-    id: int,
-    password: string [optional]
+    gameID: int,
+    password: string (optional)
   }
 - return on success: {
     success: true,
