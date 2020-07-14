@@ -4,7 +4,10 @@
   <title>{{ config.APPLICATION_NAME }}</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
-  <link rel="icon" href="{{ url_for('static', filename='img/favicons/favicon-16x16.png') }}" type="image/png" sizes="16x16">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicons/favicon-16x16.png') }}">
+  <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='img/favicons/favicon-96x96.png') }}">
+  <link rel="icon" type="image/png" sizes="256x256" href="{{ url_for('static', filename='img/favicons/favicon-256x256.png') }}">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="{{ url_for('static', filename='img/favicons/favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <script>
     const dionysos = {
