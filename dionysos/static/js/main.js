@@ -483,17 +483,20 @@ jQuery($ => {
             await fetch(app.paths.games)
                 .then(response => response.json())
                 .then(newGames => {
-                    // Remove games that have been deleted
+                    // Update games and remove those that have been deleted
                     const oldGames = this.games();
                     oldGames.forEach(oldGame => {
-                        if (!newGames.any(newGame => oldGame.id === newGame.id))
-                            this.games.removeAll(game => game.id === oldGame.id);
+                        if (newGames.some(newGame => oldGame.id === newGame.id)) {
+                            // Currently only playerCount can change after game creation
+                            oldGame.playerCount = newGame.playerCount;
+                        } else {
+                            this.games.remove(game => game.id === oldGame.id);
+                        }
                     });
                     // Push previously unseen games
                     newGames.forEach(newGame => {
-                        if (!oldGames.any(oldGame => oldGame.id === newGame.id))
+                        if (!oldGames.some(oldGame => oldGame.id === newGame.id))
                             this.games.push(new Game(newGame));
-                        });
                     });
                 });
         }

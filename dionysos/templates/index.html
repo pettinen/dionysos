@@ -151,7 +151,7 @@
   </div>
 
   <div id="gameplay" data-bind="if: inProgress">
-    <button data-bind="click: drawCard, if: canDraw">Draw card</button>
+    <button data-bind="click: drawCard, visible: canDraw">Draw card</button>
 
     <div id="use-cards">
       <h2>Use cards</h2>
