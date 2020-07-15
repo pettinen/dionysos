@@ -55,8 +55,10 @@ def create_game(*args):
 def join_game(*args):
     if len(args) != 1 or not isinstance(args[0], dict):
         return fail('invalid-arguments')
-    if g.user.current_game is not None:
-        return fail('already-in-game')
+
+    # If the user is not in a game, this does nothing.
+    # Called in case disconnection is not registered and the user still appears in-game.
+    g.user.leave_game()
 
     data, = args
     if 'id' not in data or not isinstance(data['id'], int):

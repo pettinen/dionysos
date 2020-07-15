@@ -482,9 +482,19 @@ jQuery($ => {
         async refresh() {
             await fetch(app.paths.games)
                 .then(response => response.json())
-                .then(games => {
-                    this.games([]);
-                    this.games.push(...games.map(game => new Game(game)));
+                .then(newGames => {
+                    // Remove games that have been deleted
+                    const oldGames = this.games();
+                    oldGames.forEach(oldGame => {
+                        if (!newGames.any(newGame => oldGame.id === newGame.id))
+                            this.games.removeAll(game => game.id === oldGame.id);
+                    });
+                    // Push previously unseen games
+                    newGames.forEach(newGame => {
+                        if (!oldGames.any(oldGame => oldGame.id === newGame.id))
+                            this.games.push(new Game(newGame));
+                        });
+                    });
                 });
         }
     }
