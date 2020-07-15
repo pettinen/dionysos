@@ -488,7 +488,7 @@ jQuery($ => {
                     oldGames.forEach(oldGame => {
                         if (newGames.some(newGame => oldGame.id === newGame.id)) {
                             // Currently only playerCount can change after game creation
-                            oldGame.playerCount = newGame.playerCount;
+                            oldGame.playerCount(newGame.playerCount);
                         } else {
                             this.games.remove(game => game.id === oldGame.id);
                         }
