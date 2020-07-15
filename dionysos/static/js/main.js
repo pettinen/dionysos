@@ -487,8 +487,8 @@ jQuery($ => {
                     const oldGames = this.games();
                     oldGames.forEach(oldGame => {
                         if (newGames.some(newGame => oldGame.id === newGame.id)) {
-                            // Currently only playerCount can change after game creation
-                            oldGame.playerCount(newGame.playerCount);
+                            for (const property of ['playerCount', 'started', 'ended'])
+                                oldGame[property](newGame[property]);
                         } else {
                             this.games.remove(game => game.id === oldGame.id);
                         }
