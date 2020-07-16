@@ -6,6 +6,8 @@ CSRF_HEADER = 'X-CSRF-Token'
 CSRF_DATA_KEY = 'csrf'
 JWT_ALGORITHM = 'HS512'
 JWT_COOKIE = 'jwt'
+LANGUAGES = ['eng']
+PASSWORD_MIN_LENGTH = 6
 PREFERRED_URL_SCHEME = 'https'
 PSYCOPG2_DB = 'dbname=dionysos'
 REDIS_URL = 'unix:///run/redis/redis.sock?db=0'

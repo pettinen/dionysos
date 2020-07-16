@@ -165,7 +165,7 @@ class Game:
                 'skipsLeft': int(turn_skips) - 1
             })
             self.current_player = self.next_player
-        self.emit('new-turn', {'userID': self.current_player})
+        self.emit('new-turn', {'user': self.current_player})
 
     @property
     def current_player(self):
@@ -193,9 +193,9 @@ class Game:
 
     def discard(self, card, user):
         redis_db.rpush(self.redis_key('discard'), card.id)
-        self.emit('discard', {
-            'cardID': card.id,
-            'userID': user.id
+        self.emit('card-discarded', {
+            'card': card.id,
+            'user': user.id
         })
 
     def draw_card(self):
@@ -207,7 +207,7 @@ class Game:
         card = Card(int(card_id))
         if card.type['id'] == app.config['USE_CARD_ID']:
             redis_db.rpush(self.redis_key(f'user:{g.user.id}:use-cards'), card.id)
-            self.emit('private-card-drawn', {'userID': g.user.id})
+            self.emit('private-card-drawn', {'user': g.user.id})
             g.user.emit('use-card-added', {'cardID': card.id})
         else:
             if card.duration != 0:
@@ -217,12 +217,12 @@ class Game:
                     self.add_active_card(card, g.user)
 
             if card.visibility == 'all':
-                self.emit('card-drawn', {
-                    'cardID': card.id,
-                    'userID': g.user.id
+                self.emit('public-card-drawn', {
+                    'card': card.id,
+                    'user': g.user.id
                 })
             elif card.visibility == 'player':
-                self.emit('private-card-drawn', {'userID': g.user.id})
+                self.emit('private-card-drawn', {'user': g.user.id})
 
         if redis_db.llen(self.redis_key('deck')) == 0:
             self.end()
@@ -344,13 +344,16 @@ class Game:
         user.emit('use-card-removed', {'cardID': card_id})
 
     def remove_player(self, user):
+        if user.id == self.current_player:
+            self.advance_turn()
+
         redis_db.lrem(self.redis_key('player-order'), 0, user.id)
         redis_db.hdel(self.redis_key('turn-skips'), user.id)
         keys = redis_db.keys(self.redis_key(f'{user.id}:*'))
         if keys:
             redis_db.delete(*keys)
 
-        self.emit('game-left', {'userID': user.id})
+        self.emit('game-left', {'user': user.id})
 
         if self.player_count == 0:
             self.delete()
@@ -405,7 +408,7 @@ class Game:
 
         socketio.emit('game-started', {'id': self.id})
         self.emit('player-order-changed', player_ids)
-        self.emit('new-turn', {'userID': first_player})
+        self.emit('new-turn', {'user': first_player})
 
     def use_card(self, card, user):
         key = self.redis_key(f'user:{user.id}:use-cards')

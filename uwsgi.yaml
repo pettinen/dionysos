@@ -1,8 +1,8 @@
 uwsgi:
     socket: /run/dionysos/dionysos.sock
     chmod-socket: 660
-    master: true
     manage-script-name: true
+    master: true
     mount: /=dionysos:app
     uid: dionysos
     gid: http

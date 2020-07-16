@@ -4,7 +4,7 @@ from . import redis_db, socketio
 from .auth import login_optional, socket_login_required
 from .errors import DatabaseError, GameError
 from .game import Card, Game
-from .utils import fail
+from .utils import only_arg_dict, fail
 
 
 @socketio.on('connect')
@@ -25,10 +25,11 @@ def disconnect():
 @socketio.on('create-game')
 @socket_login_required
 def create_game(*args):
-    if len(args) != 1 or not isinstance(args[0], dict):
+    if not only_arg_dict(args):
         return fail('invalid-arguments')
+
     if g.user.current_game is not None:
-        return fail('already-in-game')
+        return g.user.leave_game()
 
     data, = args
     if ('name' not in data
@@ -40,20 +41,20 @@ def create_game(*args):
         return fail('invalid-max-players')
 
     if 'password' in data and not isinstance(data['password'], str):
-        return fail('invalid-game-password')
+        return fail('invalid-password')
 
     try:
         game = Game.create(data['name'], data['maxPlayers'], data.get('password'))
     except (DatabaseError, ValueError) as e:
         return fail(e)
 
-    return {'success': True, 'gameID': game.id}
+    return {'success': True, 'id': game.id}
 
 
 @socketio.on('join-game')
 @socket_login_required
 def join_game(*args):
-    if len(args) != 1 or not isinstance(args[0], dict):
+    if not only_arg_dict(args):
         return fail('invalid-arguments')
 
     # If the user is not in a game, this does nothing.
@@ -83,14 +84,22 @@ def join_game(*args):
 @socketio.on('start-game')
 @socket_login_required
 def start_game(*args):
-    if len(args) != 1:
+    if not only_arg_dict(args):
         return fail('invalid-arguments')
 
-    game = g.user.current_game
-    if game is None:
+    data, = args
+    if 'id' not in data or not isinstance(data['id'], int):
+        return fail('invalid-game-id')
+    if g.user.current_game is None or data['id'] != g.user.current_game.id:
         return fail('not-in-game')
+
+    try:
+        game = Game(data['id'])
+    except ValueError as e:
+        return fail(e)
+
     if g.user.id != game.creator.id:
-        return('not-creator')
+        return fail('not-creator')
 
     try:
         game.start()
@@ -99,25 +108,15 @@ def start_game(*args):
     return {'success': True}
 
 
-@socketio.on('end-game')
-@socket_login_required
-def end_game(*args):
-    if len(args) != 1:
-        return fail('invalid-arguments')
-    if g.user.current_game is None:
-        return fail('not-in-game')
-
-    g.user.current_game.end()
-    return {'success': True}
-
-
 @socketio.on('leave-game')
 @socket_login_required
 def leave_game(*args):
-    if len(args) != 1:
+    if not only_arg_dict(args):
         return fail('invalid-arguments')
-    if g.user.current_game is None:
-        return fail('not-in-game')
+
+    data, = args
+    if 'id' not in data or not isinstance(data['id'], int):
+        return fail('invalid-game-id')
 
     g.user.leave_game()
     return {'success': True}
@@ -147,10 +146,14 @@ def draw_card(*args):
 @socketio.on('use-card')
 @socket_login_required
 def use_card(*args):
-    if len(args) != 1 or not isinstance(args[0], dict) or 'id' not in args[0]:
+    if not only_arg_dict(args):
         return fail('invalid-arguments')
 
-    card = Card(args[0]['id'])
+    data, = args
+    if 'id' not in data or not isinstance(data['id'], int):
+        return fail('invalid-card-id')
+
+    card = Card(data['id'])
     game = g.user.current_game
     try:
         game.use_card(card, g.user)

@@ -108,7 +108,7 @@ jQuery($ => {
 
 
     class Game {
-        constructor(data, playerCount = 0, started = false) {
+        constructor(data) {
             for (const property of ['id', 'name', 'creator', 'maxPlayers', 'passwordProtected'])
                 this[property] = data[property];
             for (const property of ['playerCount', 'started', 'ended'])
@@ -187,7 +187,7 @@ jQuery($ => {
             const errors = [];
             const csrfToken = csrfCookie();
             if (!csrfToken)
-                errors.push('missing-csrf-token');
+                errors.push('error-refresh');
             if (typeof this.username() !== 'string' || !this.username().trim())
                 errors.push('empty-username');
             if (typeof this.password() !== 'string' || !this.password().trim())
@@ -216,9 +216,8 @@ jQuery($ => {
                     // Reconnect to set auth cookies for socket
                     socket.close().open();
                     showMessage('logged-in');
-                    const gameNameInput = $('#newgame-name');
-                    if (!gameNameInput.val())
-                        gameNameInput.val(`${this.user().name}\u2019s game`);
+                    if (!gamesList.newGame.name())
+                        gamesList.newGame.name(`${this.user().name}\u2019s game`);
                 } else {
                     console.log("Login failed:", response);
                     showMessage(response.reason);
@@ -229,7 +228,7 @@ jQuery($ => {
         logout() {
             const csrfToken = csrfCookie();
             if (!csrfToken) {
-                showMessage('missing-csrf-token');
+                showMessage('error-refresh');
                 return;
             }
             fetch(app.paths.logout, {
@@ -241,14 +240,59 @@ jQuery($ => {
             })
             .then(response => response.json())
             .then(response => {
-            if (response.success) {
-                currentGame.leave();
+                if (response.success) {
+                    currentGame.leave();
                     this.user(null);
+                    replaceURL(null);
                     // Reconnect to set auth cookies for socket
                     socket.close().open();
                     showMessage('logged-out');
                 } else {
                     console.log("Logout failed:", response);
+                    showMessage(response.reason);
+                }
+            });
+        }
+
+        register() {
+            const csrfToken = csrfCookie();
+            if (!csrfToken) {
+                log("Missing CSRF token when registering");
+                showMessage('error-refresh');
+                return;
+            }
+            const errors = [];
+            if (typeof this.username() !== 'string' || !this.username().trim())
+                errors.push('empty-username');
+            if (typeof this.password() !== 'string'
+                    || this.password().trim().length < app.config.passwordMinLength)
+                errors.push('password-too-short');
+            if (errors.length) {
+                showMessages(errors);
+                return;
+            }
+
+            const requestBody = {
+                username: this.username().trim(),
+                password: this.password().trim()
+            };
+
+            fetch(app.paths.register, {
+                method: 'POST',
+                body: JSON.stringify(requestBody),
+                headers: {
+                    'Content-Type': 'application/json',
+                    [app.config.csrfHeader]: csrfToken
+                }
+            })
+            .then(response => response.json())
+            .then(response => {
+                if (response.success) {
+                    this.user(new User(response.user));
+                    // Reconnect to set auth cookies for socket
+                    socket.close().open();
+                    showMessage('registered');
+                } else {
                     showMessage(response.reason);
                 }
             });
@@ -338,7 +382,9 @@ jQuery($ => {
                 showMessage('not-in-game');
                 return;
             }
-            emit('leave-game', {id: this.game().id}, response => {
+            const gameID = this.game().id;
+            this.clear();
+            emit('leave-game', {id: gameID}, response => {
                 if (!response) {
                     showMessage('connection-problem');
                 } else if (response.success) {
@@ -425,11 +471,9 @@ jQuery($ => {
         createGame() {
             const errors = [];
             const name = this.newGame.name();
-            if (typeof name !== 'string' || !name.trim()) {
-                console.log(name);
+            if (typeof name !== 'string' || !name.trim())
                 errors.push('invalid-name');
 
-            }
             const maxPlayers = Number(this.newGame.maxPlayers());
             if (!Number.isInteger(maxPlayers)
                     || maxPlayers < app.config.maxPlayersMin
@@ -451,20 +495,26 @@ jQuery($ => {
                 data.password = password;
 
             emit('create-game', data, response => {
+                if (!response) {
+                    showMessage('connection-error');
+                    return;
+                }
                 if (response.success) {
                     this.refresh().then(() => {
-                        const game = gamesList.game(response.gameID);
-                        if (password)
-                            localStorage.setItem(`game-${game.id}-password`, password);
-                        if (game === null) {
-                            log("Game did not exist after creating it");
-                            return;
-                        }
-                        game.join(password);
-                        if (currentGame.game() !== null)
-                            showMessage('game-created');
+                        gamesList.refresh().then(() => {
+                            const game = gamesList.game(response.id);
+                            if (password)
+                                localStorage.setItem(`game-${game.id}-password`, password);
+                            if (game === null) {
+                                log("Game did not exist after creating it");
+                                return;
+                            }
+                            game.join(password);
+                            if (currentGame.game() !== null)
+                                showMessage('game-created');
+                        });
                     });
-                } else {
+                } else if (response) {
                     showMessage(response.reason);
                 }
             });
@@ -486,7 +536,8 @@ jQuery($ => {
                     // Update games and remove those that have been deleted
                     const oldGames = this.games();
                     oldGames.forEach(oldGame => {
-                        if (newGames.some(newGame => oldGame.id === newGame.id)) {
+                        const newGame = newGames.find(newGame => oldGame.id === newGame.id);
+                        if (newGame !== undefined) {
                             for (const property of ['playerCount', 'started', 'ended'])
                                 oldGame[property](newGame[property]);
                         } else {
@@ -540,12 +591,12 @@ jQuery($ => {
 
 
     socket.on('game-created', data => {
-        console.log(`A game (ID: ${data.id}, name: ${data.name}) was created`);
+        log('game-created', data);
         gamesList.games.push(new Game(data));
     });
 
     socket.on('game-updated', data => {
-        console.log(`Game ${data.id} now has ${data.playerCount} players`);
+        log('player-count-updated', data);
         const game = gamesList.game(data.id);
         if (game)
             game.playerCount(data.playerCount);
@@ -554,7 +605,7 @@ jQuery($ => {
     });
 
     socket.on('game-started', data => {
-        console.log(`Game ${data.id} has started`);
+        log('game-started', data);
         const game = gamesList.game(data.id);
         if (game)
             game.started(true);
@@ -563,7 +614,7 @@ jQuery($ => {
     });
 
     socket.on('game-deleted', data => {
-        console.log(`Game ${data.id} has ended`);
+        log('game-deleted', data);
         if (currentGame.game() && currentGame.game().id === data.id)
             currentGame.clear();
         gamesList.games.remove(game => game.id === data.id);
@@ -578,7 +629,7 @@ jQuery($ => {
     });
 
     currentGame.on('game-left', data => {
-        const players = currentGame.players.remove(player => player.id === data.userID);
+        const players = currentGame.players.remove(player => player.id === data.user);
         if (players.length !== 1)
             log('invalid-player', 'game-left', players);
         for (const player of players) {
@@ -588,34 +639,48 @@ jQuery($ => {
     });
 
     currentGame.on('new-turn', data => {
-        const player = currentGame.player(data.userID);
+        const player = currentGame.player(data.user);
         if (!player) {
             log('invalid-player', 'new-turn');
             return;
         }
-        console.log(`It is now ${player.name}'s turn.`);
         currentGame.currentPlayer(player);
     });
 
-    currentGame.on('game-ended', () => {
-        currentGame.ended(true);
-        currentGame.currentPlayer(null);
-        showMessage('game-ended');
-    });
+    currentGame.on('game-ended', data => {
+        if (!data.id) {
+            log("Missing game ID in 'game-ended' data");
+            return;
+        }
 
-    currentGame.on('player-order-changed', playerOrder => {
-        const players = currentGame.players.removeAll();
-        for (const id of playerOrder) {
-            const player = players.find(player => id === player.id);
-            if (player)
-                currentGame.players.push(player);
-            else
-                log('invalid-player', 'player-order-changed');
+        const game = gamesList.game(data.id);
+        if (!game) {
+            log("Nonexistent game ID in 'game-ended' data");
+            return;
+        }
+        gamesList.game(data.id).ended(true);
+
+        if (currentGame.game() && data.id === currentGame.game().id) {
+            currentGame.currentPlayer(null);
+            showMessage('game-ended');
         }
     });
 
+    currentGame.on('player-order-changed', playerOrder => {
+        const oldPlayers = currentGame.players();
+        const newPlayers = [];
+        for (const id of playerOrder) {
+            const player = oldPlayers.find(player => id === player.id);
+            if (player)
+                newPlayers.push(player);
+            else
+                log("Invalid user ID in 'player-order-changed' data");
+        }
+        currentGame.players(newPlayers);
+    });
+
     currentGame.on('private-card-drawn', data => {
-        const player = currentGame.player(data.userID);
+        const player = currentGame.player(data.user);
         if (!player) {
             log('invalid-player', 'private-card-drawn');
             return;
@@ -624,15 +689,15 @@ jQuery($ => {
             showMessage('private-card-drawn', player);
     });
 
-    currentGame.on('card-drawn', data => {
-        const card = cards.get(data.cardID);
-        const player = currentGame.player(data.userID);
+    currentGame.on('public-card-drawn', data => {
+        const card = cards.get(data.card);
+        const player = currentGame.player(data.user);
         if (!card || !player) {
-            log('invalid-data', 'card-drawn', card, player);
+            log('invalid-data', 'public-card-drawn', card, player);
             return;
         }
         if (player.id !== settings.user().id)
-            showMessage('card-drawn-other', card, player);
+            showMessage('public-card-drawn-other', card, player);
     });
 
     currentGame.on('active-card-added', data => {
@@ -697,9 +762,9 @@ jQuery($ => {
         showMessage('spidey-sense-tingling', card);
     });
 
-    currentGame.on('discard', data => {
-        const card = cards.get(data.cardID);
-        const player = currentGame.player(data.userID);
+    currentGame.on('card-discarded', data => {
+        const card = cards.get(data.card);
+        const player = currentGame.player(data.user);
         if (!card || !player) {
             log('invalid-data', 'discard', card, player);
             return;

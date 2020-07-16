@@ -4,6 +4,9 @@
   <title>{{ config.APPLICATION_NAME }}</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width">
+  <meta name="og:title" content="{{ config.APPLICATION_NAME }}">
+  <meta name="og:description" content="A party game for drunken people.">
+  <meta name="theme-color" content="#101010">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicons/favicon-16x16.png') }}">
   <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='img/favicons/favicon-96x96.png') }}">
   <link rel="icon" type="image/png" sizes="256x256" href="{{ url_for('static', filename='img/favicons/favicon-256x256.png') }}">
@@ -20,12 +23,14 @@
         maxPlayersDefault: {{ config.MAX_PLAYERS_DEFAULT|tojson}},
         maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
         maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }},
-        minPlayersToStart: {{ config.MIN_PLAYERS_TO_START|tojson }}
+        minPlayersToStart: {{ config.MIN_PLAYERS_TO_START|tojson }},
+        passwordMinLength: {{ config.PASSWORD_MIN_LENGTH|tojson }}
       },
       paths: {
         index: {{ url_for('index')|tojson }},
         login: {{ url_for('login')|tojson }},
         logout: {{ url_for('logout')|tojson }},
+        register: {{ url_for('register')|tojson }},
         cards: {{ url_for('cards')|tojson }},
         game: id => {{ url_for('index', game_id='GAME_ID')|tojson }}.replace('GAME_ID', id),
         games: {{ url_for('games')|tojson }},
@@ -73,7 +78,7 @@
   <form data-bind="submit: login">
     <label>Username: <input type="text" value="{{ user.name }}" data-bind="value: username"></label><br>
     <label>Password: <input type="password" data-bind="value: password"></label><br>
-    <button type="submit">Login</button>
+    <button type="submit">Login</button> or <button data-bind="click: register">Register</button>
   </form>
   <!-- /ko -->
 </div>
@@ -150,6 +155,7 @@
     <button type="button" data-bind="click: start, visible: canStart">Start game</button>
   </div>
 
+  <h2>Gameplay goes here</h2>
   <div id="gameplay" data-bind="if: inProgress">
     <button data-bind="click: drawCard, visible: canDraw">Draw card</button>
 

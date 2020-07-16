@@ -1,4 +1,5 @@
 from flask import g, jsonify, make_response, render_template, request
+from passlib.hash import bcrypt
 
 from . import app, db, redis_db
 from .auth import (
@@ -127,4 +128,54 @@ def logout():
 
     response = jsonify({'success': True})
     unset_jwt_cookie(response)
+    return response
+
+@app.route('/register', methods=['POST'])
+@check_csrf_header
+def register():
+    data = request.get_json()
+    if data is None:
+        return fail('json-loading-failed')
+
+    username = data.get('username')
+    if username is None or not isinstance(username, str) or not username.strip():
+        return fail('empty-username')
+    password = data.get('password')
+    if password is None or not isinstance(password, str) or not password.strip():
+        return fail('empty-password')
+
+    username = username.strip()
+    password = password.strip()
+
+    if len(password) < app.config['PASSWORD_MIN_LENGTH']:
+        return fail('password-too-short')
+
+    cur = db.cursor()
+    cur.execute('SELECT id FROM users WHERE lower(name) = lower(%s);', [username])
+    if cur.rowcount != 0:
+        cur.close()
+        return fail('user-exists')
+
+    password_hash = bcrypt.hash(password)
+    cur.execute('INSERT INTO users (name, password_hash) VALUES (%s, %s) RETURNING id;',
+        [username, password_hash])
+    if cur.rowcount != 1:
+        pass # TODO: log this
+
+    user_id = cur.fetchone()
+    if user_id is None:
+        # TODO: log this
+        return fail('error')
+
+    user = User(user_id[0])
+    response = jsonify({
+        'success': True,
+        'user': {
+            'id': user.id,
+            'name': user.name
+        }
+    })
+    set_jwt_cookie(response, user)
+    set_csrf_cookie(response)
+    print(response)
     return response
