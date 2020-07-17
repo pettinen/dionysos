@@ -6,7 +6,7 @@ CSRF_HEADER = 'X-CSRF-Token'
 CSRF_DATA_KEY = 'csrf'
 JWT_ALGORITHM = 'HS512'
 JWT_COOKIE = 'jwt'
-LANGUAGES = ['eng']
+LANGUAGES = ['en']
 PASSWORD_MIN_LENGTH = 6
 PREFERRED_URL_SCHEME = 'https'
 PSYCOPG2_DB = 'dbname=dionysos'
