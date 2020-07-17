@@ -62,7 +62,7 @@ def join_game(*args):
     g.user.leave_game()
 
     data, = args
-    if 'id' not in data or not isinstance(data['id'], int):
+    if 'id' not in data or not isinstance(data['id'], str):
         return fail('invalid-game-id')
 
     try:
@@ -88,7 +88,7 @@ def start_game(*args):
         return fail('invalid-arguments')
 
     data, = args
-    if 'id' not in data or not isinstance(data['id'], int):
+    if 'id' not in data or not isinstance(data['id'], str):
         return fail('invalid-game-id')
     if g.user.current_game is None or data['id'] != g.user.current_game.id:
         return fail('not-in-game')
@@ -115,7 +115,7 @@ def leave_game(*args):
         return fail('invalid-arguments')
 
     data, = args
-    if 'id' not in data or not isinstance(data['id'], int):
+    if 'id' not in data or not isinstance(data['id'], str):
         return fail('invalid-game-id')
 
     g.user.leave_game()

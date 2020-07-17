@@ -19,9 +19,25 @@ from .utils import fail
 @app.route('/game/<game_id>')
 @login_optional
 def index(game_id=None):
-    response = make_response(render_template('index.html', user=g.user, game_id=game_id))
-    #if not request.cookies.get(app.config['CSRF_COOKIE']):
-    set_csrf_cookie(response) # always set a new random one
+    # Language setting should really be in middleware
+    set_lang_cookie = False
+    lang_cookie = request.cookies.get(app.config['LANGUAGE_COOKIE'])
+    if lang_cookie is not None:
+        if lang_cookie in app.config['LANGUAGES']:
+            language = lang_cookie
+        else:
+            language = app.config['DEFAULT_LANGUAGE']
+            set_lang_cookie = True
+    else:
+        language = request.accept_languages.best_match(app.config['LANGUAGES'],
+            default=app.config['DEFAULT_LANGUAGE'])
+        set_lang_cookie = True
+    g.language = language
+
+    response = make_response(render_template('index.html', game_id=game_id))
+    set_csrf_cookie(response)
+    if set_lang_cookie:
+        response.set_cookie(app.config['LANGUAGE_COOKIE'], language)
     return response
 
 
@@ -147,6 +163,8 @@ def register():
     username = username.strip()
     password = password.strip()
 
+    if len(username) > app.config['USERNAME_MAX_LENGTH']:
+        return fail('username-too-long')
     if len(password) < app.config['PASSWORD_MIN_LENGTH']:
         return fail('password-too-short')
 

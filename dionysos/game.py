@@ -6,6 +6,7 @@ from passlib.hash import bcrypt
 
 from . import app, db, redis_db, socketio
 from .errors import DatabaseError, GameError
+from .utils import base58_random
 
 
 class Card:
@@ -54,17 +55,24 @@ class Game:
             password_hash = bcrypt.hash(password.strip())
 
         cur = db.cursor()
+
+        unique_id = False
+        while not unique_id:
+            game_id = base58_random(app.config['GAME_ID_LENGTH'])
+            cur.execute('SELECT id FROM games WHERE id = %s;', [game_id])
+            if cur.rowcount == 0:
+                unique_id = True
+
         cur.execute(
-            'INSERT INTO games (name, password_hash, creator, max_players)'
-            ' VALUES (%s, %s, %s, %s) RETURNING id;',
-            [name.strip(), password_hash, g.user.id, max_players])
+            'INSERT INTO games (id, name, password_hash, creator, max_players)'
+            ' VALUES (%s, %s, %s, %s, %s);',
+            [game_id, name.strip(), password_hash, g.user.id, max_players])
         if cur.rowcount == 0:
             cur.close()
             # TODO: log this
             raise DatabaseError('insert-failed')
         elif cur.rowcount > 1:
             pass # TODO: log this
-        game_id, = cur.fetchone()
         cur.close()
 
         game = cls(game_id)
@@ -72,7 +80,7 @@ class Game:
         return game
 
     def __init__(self, game_id):
-        if not isinstance(game_id, int):
+        if not isinstance(game_id, str):
             raise ValueError('invalid-game-id')
         cur = db.cursor()
         cur.execute('SELECT id, name, password_hash, creator, max_players, started, ended'
@@ -84,6 +92,7 @@ class Game:
             pass # TODO: log this
         self.id, self.name, self.password_hash, creator_id, self.max_players, \
             self.started, self.ended = cur.fetchone()
+
         from .auth import User
         self.creator = User(creator_id)
         cur.close()

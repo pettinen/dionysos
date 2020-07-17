@@ -48,8 +48,8 @@ jQuery($ => {
 
     const afterGamesListLoaded = function() {
         if (app.initialGame !== null) {
-            const gameID = Number(app.initialGame);
-            if (Number.isNaN(gameID)) {
+            const gameID = app.initialGame;
+            if (typeof gameID !== 'string') {
                 showMessage('invalid-game-id');
                 replaceURL(null);
                 return;
@@ -262,8 +262,11 @@ jQuery($ => {
                 return;
             }
             const errors = [];
-            if (typeof this.username() !== 'string' || !this.username().trim())
-                errors.push('empty-username');
+            if (typeof this.username() !== 'string' || !this.username().trim()) {
+                errors.push('invalid-username');
+            } else if (this.username().trim().length > app.config.usernameMaxLength) {
+                errors.push('username-too-long');
+            }
             if (typeof this.password() !== 'string'
                     || this.password().trim().length < app.config.passwordMinLength)
                 errors.push('password-too-short');
@@ -514,7 +517,7 @@ jQuery($ => {
                                 showMessage('game-created');
                         });
                     });
-                } else if (response) {
+                } else if (response.reason) {
                     showMessage(response.reason);
                 }
             });

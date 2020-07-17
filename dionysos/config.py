@@ -8,6 +8,7 @@ JWT_ALGORITHM = 'HS512'
 JWT_COOKIE = 'jwt'
 LANGUAGES = ['en']
 DEFAULT_LANGUAGE = 'en'
+LANGUAGE_COOKIE = 'lang'
 PREFERRED_URL_SCHEME = 'https'
 PSYCOPG2_DB = 'dbname=dionysos'
 REDIS_URL = 'unix:///run/redis/redis.sock?db=0'
@@ -16,6 +17,7 @@ SERVER_NAME = 'dionysos.jeremi.as'
 SESSION_COOKIE_SECURE = True
 TESTING = True
 
+GAME_ID_LENGTH = 6
 PASSWORD_MIN_LENGTH = 6
 USERNAME_MAX_LENGTH = 25
 

@@ -8,7 +8,7 @@ CREATE TABLE "users" (
 CREATE UNIQUE INDEX ON "users" (lower("name"));
 
 CREATE TABLE "games" (
-    "id" integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    "id" text PRIMARY KEY,
     "name" text NOT NULL,
     "password_hash" text,
     "creator" integer NOT NULL REFERENCES "users" ("id"),
@@ -19,7 +19,7 @@ CREATE TABLE "games" (
 
 CREATE TABLE "users_games" (
     "user_id" integer PRIMARY KEY REFERENCES "users" ("id"),
-    "game_id" integer REFERENCES "games" ("id")
+    "game_id" text REFERENCES "games" ("id")
 );
 CREATE INDEX ON "users_games" ("game_id");
 

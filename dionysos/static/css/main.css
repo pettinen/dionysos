@@ -18,7 +18,7 @@ h1 {
     color: inherit;
 }
 
-.card-base {
+.card-img, .card-base {
     max-height: 200px;
 }
 
@@ -29,6 +29,6 @@ h1 {
     left: 0;
     right: 0;
     margin: 0;
-    border-top: 1vh solid #aaaaaa;
+    border-top: .5vh solid #aaaaaa;
     background: #333333;
 }
