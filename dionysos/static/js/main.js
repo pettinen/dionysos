@@ -12,11 +12,11 @@ jQuery($ => {
         log(`Unknown message ID: ${messageID}`);
         return messageID;
     };
-    const showMessage = function(...messages) {
-        messages.forEach(message => console.log(message));
+    const showMessage = function(...args) {
+        console.log(args.join(', '));
     };
-    const gameLog = function(...messages) {
-        currentGame.gameLog.push(...messages);
+    const gameLog = function(...args) {
+        currentGame.gameLog.push(args.join(', '));
     };
     const showDebugMessage = function(message = '') {
         if (message)
@@ -309,7 +309,7 @@ jQuery($ => {
     class CurrentGameViewModel {
         constructor() {
             this.game = ko.observable(null);
-            this.gameLog = ko.observableArray(['ayy', 'lmao']);
+            this.gameLog = ko.observableArray();
             this.activeCardsMap = new Map();
             this.useCards = ko.observableArray();
             this.players = ko.observableArray();
@@ -366,15 +366,15 @@ jQuery($ => {
                 return;
             }
             emit('draw-card', {}, response => {
+                if (!response) {
+                    showMessage('connection-error');
+                    return;
+                }
                 if (response.success) {
                     const card = cards.get(response.id);
-                    if (!card) {
-                        log('invalid-card', 'draw-card');
-                        return;
-                    }
-                    this.lastCard(card);
-                    showMessage('card-drawn-self', card);
-                } else {
+                    if (!card)
+                        log("Invalid card ID contained in 'draw-card' response");
+                } else if (response.reason) {
                     showMessage(response.reason);
                 }
             });
@@ -608,12 +608,14 @@ jQuery($ => {
     });
 
     socket.on('game-started', data => {
-        log('game-started', data);
         const game = gamesList.game(data.id);
-        if (game)
+        if (game) {
             game.started(true);
-        else
-            log('invalid-game', 'game-started');
+            if (game === currentGame.game())
+                gameLog('game-started');
+        } else {
+            log("'game-started' contained an invalid game ID");
+        }
     });
 
     socket.on('game-deleted', data => {
@@ -696,11 +698,15 @@ jQuery($ => {
         const card = cards.get(data.card);
         const player = currentGame.player(data.user);
         if (!card || !player) {
-            log('invalid-data', 'public-card-drawn', card, player);
+            log("Invalid data in 'public-card-drawn'", card, player);
             return;
         }
-        if (player.id !== settings.user().id)
-            showMessage('public-card-drawn-other', card, player);
+
+        currentGame.lastCard(card);
+        if (player.id === settings.user().id)
+            gameLog('public-card-drawn-self', card.name);
+        else
+            gameLog('public-card-drawn-other', card.name, player.name);
     });
 
     currentGame.on('active-card-added', data => {
