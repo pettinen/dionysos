@@ -6,6 +6,9 @@
   <meta name="viewport" content="width=device-width">
   <meta name="og:title" content="{{ config.APPLICATION_NAME }}">
   <meta name="og:description" content="A party game for drunken people.">
+  <meta name="og:type" content="website">
+  <meta name="og:url" content="{{ url_for('index', _external=True) }}">
+  <meta name="og:image" content="{{ url_for('static', filename='img/favicons/favicon-256x256.png', _external=True) }}">
   <meta name="theme-color" content="#101010">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='img/favicons/favicon-16x16.png') }}">
   <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='img/favicons/favicon-96x96.png') }}">
