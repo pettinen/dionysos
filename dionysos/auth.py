@@ -106,8 +106,7 @@ def login_required_factory(decorator_type):
             g.user = user
             response = func(*args, **kwargs)
             if clear_jwt_cookie and decorator_type == 'flask':
-                pass
-                #response.delete_cookie(app.config['JWT_COOKIE'])
+                response.delete_cookie(app.config['JWT_COOKIE'])
             if decorator_type == 'socketio':
                 if len(args) == 0:
                     args.append({})
@@ -147,13 +146,7 @@ def set_csrf_cookie(response):
 
 
 def unset_jwt_cookie(response):
-    response.set_cookie(
-        app.config['JWT_COOKIE'],
-        value='',
-        max_age=0,
-        secure=True,
-        httponly=True,
-        samesite='Lax')
+    response.delete_cookie(app.config['JWT_COOKIE'])
 
 
 class User():

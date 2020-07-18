@@ -37,7 +37,8 @@ def index(game_id=None):
     response = make_response(render_template('index.html', game_id=game_id))
     set_csrf_cookie(response)
     if set_lang_cookie:
-        response.set_cookie(app.config['LANGUAGE_COOKIE'], language)
+        response.set_cookie(app.config['LANGUAGE_COOKIE'], language,
+            secure=True, samesite='Lax')
     return response
 
 
