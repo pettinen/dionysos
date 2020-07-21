@@ -92,6 +92,7 @@ class Game:
             pass # TODO: log this
         self.id, self.name, self.password_hash, creator_id, self.max_players, \
             self.started, self.ended = cur.fetchone()
+        self.remote = True  # TODO: create UI
 
         from .auth import User
         self.creator = User(creator_id)
@@ -214,13 +215,13 @@ class Game:
             raise GameError('draw-from-empty-deck')
 
         card = Card(int(card_id))
-        if card.type['id'] == app.config['USE_CARD_ID']:
+        if card.type['id'] == 'use':
             redis_db.rpush(self.redis_key(f'user:{g.user.id}:use-cards'), card.id)
             self.emit('private-card-drawn', {'user': g.user.id})
             g.user.emit('use-card-added', {'cardID': card.id})
         else:
             if card.duration != 0:
-                if card.type['id'] == app.config['ALL_CARD_ID']:
+                if card.type['id'] == 'all':
                     self.add_active_card(card, 'all')
                 else:
                     self.add_active_card(card, g.user)
@@ -241,7 +242,7 @@ class Game:
         for handler in after_draw_handlers:
             handler(self)
 
-        if (card.type['id'] != app.config['USE_CARD_ID']
+        if (card.type['id'] != 'use'
                 and card.text_id in card_handlers):
             handler_opts = {'advanced_turn': False}
             try:
@@ -406,7 +407,7 @@ class Game:
         redis_db.rpush(self.redis_key('player-order'), *player_ids)
 
         # Randomize deck
-        cur.execute('SELECT id FROM cards;')
+        cur.execute('SELECT id FROM cards WHERE remote = true;')
         card_ids = [card_id for card_id, in cur]
         cur.close()
         random.shuffle(card_ids)

@@ -9,6 +9,7 @@ JWT_COOKIE = 'jwt'
 LANGUAGES = ['en']
 DEFAULT_LANGUAGE = 'en'
 LANGUAGE_COOKIE = 'lang'
+LOG_FILE = '/var/log/dionysos/dionysos.log'
 PREFERRED_URL_SCHEME = 'https'
 PSYCOPG2_DB = 'dbname=dionysos'
 REDIS_URL = 'unix:///run/redis/redis.sock?db=0'
@@ -29,8 +30,3 @@ MAX_PLAYERS_MIN = 1
 MAX_PLAYERS_MAX = 10
 MAX_PLAYERS_DEFAULT = MAX_PLAYERS_MAX
 MIN_PLAYERS_TO_START = 1
-
-ACTION_CARD_ID = 'act'
-ALL_CARD_ID = 'all'
-PERMANENT_CARD_ID  = 'perm'
-USE_CARD_ID = 'use'
