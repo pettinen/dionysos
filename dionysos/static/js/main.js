@@ -7,31 +7,66 @@ jQuery($ => {
     });
 
     const getMessage = function(messageID) {
-        if (app.messages[app.language].has(messageID))
-            return app.messages[app.language].get(messageID);
-        log(`Unknown message ID: ${messageID}`);
-        return messageID;
+        if (!app.messages) {
+            log("dionysos.messages is missing");
+            return messageID;
+        }
+        if (!app.messages[app.language]) {
+            log(`Unknown language: ${app.language}`);
+            app.language = 'en';
+            return messageID;
+        }
+        if (!app.messages[app.language].has(messageID)) {
+            log(`Unknown message ID: ${messageID}`);
+            return messageID;
+        }
+        return app.messages[app.language].get(messageID);
     };
-    const showMessage = function(...args) {
-        console.log(args.join(', '));
+
+    const formatMessage = function(messageID, ...args) {
+        return getMessage(messageID).format(...args);
     };
-    const gameLog = function(...args) {
-        currentGame.gameLog.push(args.join(', '));
+
+    const showMessage = function(messageID, ...args) {
+        $('#messages').append($('<li>').text(formatMessage(messageID, ...args)));
     };
+
+    const showMessages = function(messages) {
+        messages.forEach(args => showMessage(...args));
+    };
+
+    const gameLog = function(messageID, ...args) {
+        currentGame.gameLog.push(formatMessage(messageID, ...args));
+    };
+
+    const debug = function(...args) {
+        if (app.config.debug)
+            console.log(...args);
+    };
+
     const showDebugMessage = function(message = '') {
         if (message)
             message = ` (${reason})`;
         showMessage(`Unexpected error${reason}. If your game is broken or you have`
             + ` more information about this bug, please contact ${app.config.adminEmail}`);
     };
+
     const log = console.log;
-    const showMessages = function(messages) {
-        messages.forEach(msg => showMessage(msg));
+
+    const changeLanguage = function(language) {
+        if (app.messages[language])
+            return;
+        fetch(app.paths.messages(language))
+            .then(response => response.json())
+            .then(messages => {
+                app.messages[language] = new Map(Object.entries(messages));
+            });
     };
+    changeLanguage(app.language);
+
 
     socket.on('connect', () => {
         settings.connected(true);
-        showMessage('connected');
     });
     socket.on('connect_error', error => {
         showMessage('connection-error');
@@ -106,6 +141,12 @@ jQuery($ => {
             history.replaceState({gameID: gameID}, `Game ${gameID}`, app.paths.game(gameID));
     };
 
+    // https://stackoverflow.com/a/4673436
+    String.prototype.format = function() {
+      return this.replace(/\{(\d+)\}/g, (match, index) =>
+        arguments[index] === undefined ? match : arguments[index]);
+    };
+
 
     class Game {
         constructor(data) {
@@ -143,7 +184,7 @@ jQuery($ => {
                         localStorage.setItem(`game-${this.id}-password`, password.trim());
                     }
                     gamesList.passwordPrompt(null);
-                    showMessage('game-joined-self');
+                    showMessage('game-joined-self', this.name);
                 } else {
                     showMessage(response.reason);
                 }
@@ -187,11 +228,11 @@ jQuery($ => {
             const errors = [];
             const csrfToken = csrfCookie();
             if (!csrfToken)
-                errors.push('error-refresh');
+                errors.push(['error-refresh']);
             if (typeof this.username() !== 'string' || !this.username().trim())
-                errors.push('empty-username');
+                errors.push(['empty-username']);
             if (typeof this.password() !== 'string' || !this.password().trim())
-                errors.push('empty-password');
+                errors.push(['empty-password']);
             if (errors.length) {
                 showMessages(errors);
                 return;
@@ -215,7 +256,6 @@ jQuery($ => {
                     this.user(new User(response.user));
                     // Reconnect to set auth cookies for socket
                     socket.close().open();
-                    showMessage('logged-in');
                     if (!gamesList.newGame.name())
                         gamesList.newGame.name(`${this.user().name}\u2019s game`);
                 } else {
@@ -244,9 +284,9 @@ jQuery($ => {
                     currentGame.leave();
                     this.user(null);
                     replaceURL(null);
+                    gamesList.newGame.name('');
                     // Reconnect to set auth cookies for socket
                     socket.close().open();
-                    showMessage('logged-out');
                 } else {
                     console.log("Logout failed:", response);
                     showMessage(response.reason);
@@ -263,13 +303,13 @@ jQuery($ => {
             }
             const errors = [];
             if (typeof this.username() !== 'string' || !this.username().trim()) {
-                errors.push('invalid-username');
+                errors.push(['invalid-username']);
             } else if (this.username().trim().length > app.config.usernameMaxLength) {
-                errors.push('username-too-long');
+                errors.push(['username-too-long']);
             }
             if (typeof this.password() !== 'string'
                     || this.password().trim().length < app.config.passwordMinLength)
-                errors.push('password-too-short');
+                errors.push(['password-too-short', app.config.passwordMinLength]);
             if (errors.length) {
                 showMessages(errors);
                 return;
@@ -418,24 +458,18 @@ jQuery($ => {
             }
             const errors = [];
             if (this.game().started())
-                errors.push('game-already-started');
+                errors.push(['game-already-started']);
             if (this.game().creator.id !== settings.user().id)
-                errors.push('not-creator');
+                errors.push(['not-creator']);
             if (errors.length > 0) {
                 showMessages(errors);
                 return;
             }
             emit('start-game', {id: this.game().id}, response => {
-                if (response.success) {
-                    if (this.game() === null) {
-                        log("Tried to start a nonexistent game");
-                    } else {
-                        this.game().started(true);
-                        showMessage('game-started');
-                    }
-                } else {
+                if (!response)
+                    showMessage('connection-error');
+                else if (!response.success)
                     showMessage(response.reason);
-                }
             });
         }
     }
@@ -475,16 +509,16 @@ jQuery($ => {
             const errors = [];
             const name = this.newGame.name();
             if (typeof name !== 'string' || !name.trim())
-                errors.push('invalid-name');
+                errors.push(['invalid-name']);
 
             const maxPlayers = Number(this.newGame.maxPlayers());
             if (!Number.isInteger(maxPlayers)
                     || maxPlayers < app.config.maxPlayersMin
                     || maxPlayers > app.config.maxPlayersMax)
-                errors.push('invalid-max-players');
+                errors.push(['invalid-max-players']);
             let password = this.newGame.password().trim();
             if (typeof password !== 'string')
-                errors.push('invalid-password');
+                errors.push(['invalid-password']);
             if (errors.length) {
                 showMessages(errors);
                 return;
@@ -612,7 +646,7 @@ jQuery($ => {
         if (game) {
             game.started(true);
             if (game === currentGame.game())
-                gameLog('game-started');
+                gameLog('game-started', game.name);
         } else {
             log("'game-started' contained an invalid game ID");
         }
@@ -629,7 +663,7 @@ jQuery($ => {
         const player = new User(data);
         if (player.id !== settings.user().id) {
             currentGame.players.push(player);
-            showMessage('game-joined-other', player);
+            gameLog('game-joined-other', player.name);
         }
     });
 
@@ -639,11 +673,12 @@ jQuery($ => {
             log('invalid-player', 'game-left', players);
         for (const player of players) {
             if (player.id !== settings.user().id)
-                showMessage('game-left-other', player);
+                gameLog('game-left-other', player.name);
         }
     });
 
     currentGame.on('new-turn', data => {
+        debug("New turn:", data);
         const player = currentGame.player(data.user);
         if (!player) {
             log('invalid-player', 'new-turn');
@@ -667,7 +702,7 @@ jQuery($ => {
 
         if (currentGame.game() && data.id === currentGame.game().id) {
             currentGame.currentPlayer(null);
-            showMessage('game-ended');
+            gameLog('game-ended');
         }
     });
 
@@ -691,7 +726,7 @@ jQuery($ => {
             return;
         }
         if (settings.user().id !== player.id)
-            showMessage('private-card-drawn', player);
+            gameLog('private-card-drawn', player.name);
     });
 
     currentGame.on('public-card-drawn', data => {
@@ -731,6 +766,8 @@ jQuery($ => {
             log('invalid-card', 'use-card-added');
             return;
         }
+        gameLog('use-card-drawn', card.name);
+        currentGame.lastCard(card);
         currentGame.useCards.push(card);
     });
 
@@ -750,7 +787,7 @@ jQuery($ => {
             log('invalid-data', 'card-used', card, player);
             return;
         }
-        showMessage('card-used', card, player);
+        gameLog('card-used', card.name, player.name);
     });
 
     currentGame.on('turn-skipped', data => {
@@ -759,7 +796,12 @@ jQuery($ => {
             log('invalid-player', 'turn-skipped');
             return;
         }
-        showMessage('turn-skipped', player, data.skipsLeft);
+        if (data.skipsLeft) {
+            gameLog('turn-skipped', player.name,
+                data.skipsLeft === 1 ? "one more time" : `${data.skipsLeft} more times`);
+        } else {
+            gameLog('last-turn-skipped', player.name);
+        }
     });
 
     currentGame.on('spidey-sense-tingling', data => {
@@ -768,7 +810,7 @@ jQuery($ => {
             log('invalid-card', 'spidey-sense-tingling');
             return;
         }
-        showMessage('spidey-sense-tingling', card);
+        gameLog('spidey-sense-tingling', card.name);
     });
 
     currentGame.on('card-discarded', data => {
@@ -778,7 +820,7 @@ jQuery($ => {
             log('invalid-data', 'discard', card, player);
             return;
         }
-        showMessage('discard', card, player);
+        gameLog('card-discarded', card.name, player.name);
     });
 
     currentGame.on('card-effect', data => {
