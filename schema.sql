@@ -36,7 +36,8 @@ CREATE TABLE "all_cards" (
     "name" text NOT NULL CHECK ("name" <> ''),
     "text" text NOT NULL CHECK ("text" <> ''),
     "visibility" text NOT NULL CHECK ("visibility" IN ('all', 'player')),
-    "duration" integer NOT NULL
+    "duration" integer NOT NULL,
+    "remote" boolean NOT NULL
 );
 
 CREATE TABLE "cards" (
@@ -46,5 +47,6 @@ CREATE TABLE "cards" (
     "name" text NOT NULL CHECK ("name" <> ''),
     "text" text NOT NULL CHECK ("text" <> ''),
     "visibility" text NOT NULL CHECK ("visibility" IN ('all', 'player')),
-    "duration" integer NOT NULL
+    "duration" integer NOT NULL,
+    "remote" boolean NOT NULL
 );

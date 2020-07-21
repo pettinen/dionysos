@@ -9,8 +9,8 @@ psql < cards.sql
 # Insert all cards that require special coding (plus some other ones).
 # Unimplemented special cards are commented out.
 psql << 'EOF'
-INSERT INTO "cards" ("text_id", "name", "type", "text", "visibility", "duration")
-    SELECT "text_id", "name", "type", "text", "visibility", "duration" FROM "all_cards"
+INSERT INTO "cards" ("text_id", "name", "type", "text", "visibility", "duration", "remote")
+    SELECT "text_id", "name", "type", "text", "visibility", "duration" "remote" FROM "all_cards"
     WHERE "text_id" IN (
     -- Ordinary cards
         'anything_you_can_do',
