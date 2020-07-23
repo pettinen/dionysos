@@ -1,3 +1,4 @@
+import logging
 import random
 
 from flask import g
@@ -6,32 +7,32 @@ from passlib.hash import bcrypt
 
 from . import app, db, redis_db, socketio
 from .errors import DatabaseError, GameError
-from .utils import base58_random
+from .utils import apos, base58_random
 
 
 class Card:
     def __init__(self, card_id):
         def query_by(id_field):
-            return (
-                'SELECT cards.id, cards.text_id, cards.name, cards.text, cards.visibility,'
-                ' cards.duration, cards.type, card_types.name, card_types.base_url'
-                ' FROM cards JOIN card_types ON cards.type = card_types.id'
-               f' WHERE cards.{id_field} = %s;')
+            return (f'''
+                SELECT cards.id, cards.text_id, cards.name, cards.text, cards.visibility,
+                    cards.duration, cards.type, card_types.name, card_types.base_url
+                FROM cards JOIN card_types ON cards.type = card_types.id
+                WHERE cards.{id_field} = %s;''')
         if isinstance(card_id, int):
             query = query_by('id')
         elif isinstance(card_id, str):
             query = query_by('text_id')
         else:
-            # TODO: log this
+            logging.error(f"Card ID of unexpected type {type(card_id)}")
             raise ValueError('invalid-card-id')
         cur = db.cursor()
         cur.execute(query, [card_id])
         if cur.rowcount == 0:
             cur.close()
-            print("Invalid card id:", repr(card_id))
+            logging.warning(f"Card ID {repr(card_id)} not found in database")
             raise ValueError('invalid-card-id')
         if cur.rowcount > 1:
-            pass # TODO: log this
+            logging.warning(f"Multiple cards have ID {repr(card_id)}")
         self.id, self.text_id, self.name, self.text, self.visibility, self.duration, \
             type_id, type_name, self.base_url = cur.fetchone()
         cur.close()
@@ -43,9 +44,16 @@ class Card:
 
 class Game:
     @classmethod
-    def create(cls, name, max_players, password=None):
-        if not name.strip():
-            raise ValueError('empty-name')
+    def create(cls, name, max_players, remote, password=None):
+        if not g.user:
+            raise GameError('not-logged-in')
+
+        name = name.strip()
+        if not name:
+            name = f"{g.user.name}{apos}s game"
+        if len(name) > app.config['GAME_NAME_MAX_LENGTH']:
+            raise ValueError('game-name-too-long')
+
         if (max_players < app.config['MAX_PLAYERS_MIN']
                 or max_players > app.config['MAX_PLAYERS_MAX']):
             raise ValueError('invalid-max-players')
@@ -56,17 +64,27 @@ class Game:
 
         cur = db.cursor()
 
+        # As if we're ever going to exhaust IDs
+        cur.execute('SELECT count(*) FROM games;')
+        max_game_ids = 58**app.config['GAME_ID_LENGTH']
+        game_count, = cur.fetchone()
+        if game_count >= max_game_ids:
+            logging.critical("Game IDs exhausted")
+            raise GameError('game-ids-exhausted')
+        elif game_count > max_game_ids / 2:
+            logging.warning("Over half of game IDs exhausted")
+
         unique_id = False
         while not unique_id:
-            game_id = base58_random(app.config['GAME_ID_LENGTH'])
-            cur.execute('SELECT id FROM games WHERE id = %s;', [game_id])
+            id_ = base58_random(app.config['GAME_ID_LENGTH'])
+            cur.execute('SELECT id FROM games WHERE id = %s;', [id_])
             if cur.rowcount == 0:
                 unique_id = True
 
         cur.execute(
             'INSERT INTO games (id, name, password_hash, creator, max_players)'
             ' VALUES (%s, %s, %s, %s, %s);',
-            [game_id, name.strip(), password_hash, g.user.id, max_players])
+            [id_, name, password_hash, g.user.id, max_players])
         if cur.rowcount == 0:
             cur.close()
             # TODO: log this
