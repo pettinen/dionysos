@@ -52,7 +52,7 @@ def greed(game):
         cards = redis_db.hgetall(game.redis_key(other_cards))
         for card_id in cards:
             card = Card(int(card_id))
-            if card.type['id'] == app.config['PERMANENT_CARD_ID']:
+            if card.type['id'] == 'perm':
                 game.remove_active_card(card.id, from_user_id)
                 # The Spidey Sense card must be discarded if other players know of it.
                 if card.text_id == 'spidey_sense':
@@ -117,18 +117,19 @@ def generosity(game):
 
 
 # Permanent: See the next card in deck
-def spidey_sense(game):
-    card = Card('spidey_sense')
-    for user in game.players:
-        user_id = user['id']
-        key = game.redis_key(f'user:{user_id}:active-cards')
-        if redis_db.hexists(key, card.id):
-            next_card = redis_db.lindex(game.redis_key('deck'), 0)
-            if next_card is not None:
-                User(user_id).emit('spidey-sense-tingling', {'cardID': int(next_card)})
+#def spidey_sense(game):
+#    return
+#    card = Card('spidey_sense')
+#    for user in game.players:
+#        user_id = user['id']
+#        key = game.redis_key(f'user:{user_id}:active-cards')
+#        if redis_db.hexists(key, card.id):
+#            next_card = redis_db.lindex(game.redis_key('deck'), 0)
+#            if next_card is not None:
+#                User(user_id).emit('spidey-sense-tingling', {'cardID': int(next_card)})
 
 
 after_draw_handlers = [
     generosity,
-    spidey_sense
+    #spidey_sense
 ]
