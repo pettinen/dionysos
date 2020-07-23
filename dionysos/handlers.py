@@ -43,8 +43,12 @@ def create_game(*args):
     if 'password' in data and not isinstance(data['password'], str):
         return fail('invalid-password')
 
+    if 'remote' not in data or not isinstance(data['remote'], bool):
+        return fail('invalid-remote')
+
     try:
-        game = Game.create(data['name'], data['maxPlayers'], data.get('password'))
+        game = Game.create(data['name'], data['maxPlayers'],
+            data['remote'], data.get('password'))
     except (DatabaseError, ValueError) as e:
         return fail(e)
 
@@ -155,6 +159,8 @@ def use_card(*args):
 
     card = Card(data['id'])
     game = g.user.current_game
+    if game is None:
+        return fail('not-in-game')
     try:
         game.use_card(card, g.user)
     except GameError as e:
