@@ -23,8 +23,9 @@ h1 {
 }
 
 #game-log {
-    height: 20vh;
-    position: fixed;
+    height: 10vh;
+    position: absolute;
+    overflow-y: scroll;
     bottom: 0;
     left: 0;
     right: 0;
