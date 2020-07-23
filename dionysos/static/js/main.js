@@ -483,13 +483,14 @@ jQuery($ => {
             this.newGame = {
                 name: ko.observable(app.initialUser ? `${app.initialUser.name}\u2019s game` : ''),
                 password: ko.observable(''),
-                maxPlayers: ko.observable(app.config.maxPlayersDefault)
+                maxPlayers: ko.observable(app.config.maxPlayersDefault),
+                remote: ko.observable(false)
             };
             this.ownGamesMaxed = ko.pureComputed(() => {
                 if (!settings.user())
                     return true;
                 const count = this.games().filter(game => game.creator.id === settings.user().id).length;
-                return count >= app.config.maxCreatedGames;
+                return count >= app.config.maxGamesPerUser;
             });
             this.joinableGames = ko.pureComputed(() => {
                 return this.games().filter(game => !game.started());
@@ -507,26 +508,37 @@ jQuery($ => {
 
         createGame() {
             const errors = [];
+
             const name = this.newGame.name();
             if (typeof name !== 'string' || !name.trim())
                 errors.push(['invalid-name']);
+            name = name.trim();
 
             const maxPlayers = Number(this.newGame.maxPlayers());
             if (!Number.isInteger(maxPlayers)
                     || maxPlayers < app.config.maxPlayersMin
                     || maxPlayers > app.config.maxPlayersMax)
                 errors.push(['invalid-max-players']);
-            let password = this.newGame.password().trim();
-            if (typeof password !== 'string')
+
+            const password = this.newGame.password();
+            if (typeof password === 'string')
+                password = password.trim();
+            else
                 errors.push(['invalid-password']);
+
+            const remote = this.newGame.remote();
+            if (typeof remote !== 'boolean')
+                errors.push(['invalid-remote']);
+
             if (errors.length) {
                 showMessages(errors);
                 return;
             }
 
             const data = {
-                name: name.trim(),
-                maxPlayers: maxPlayers
+                name: name,
+                maxPlayers: maxPlayers,
+                remote: remote
             };
             if (password)
                 data.password = password;
