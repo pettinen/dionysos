@@ -18,11 +18,12 @@
   <script>
     const dionysos = {
       config: {
+        debug: {{ config.TESTING|tojson }},
         adminEmail: {{ config.ADMIN_EMAIL|tojson }},
         csrfCookie: {{ config.CSRF_COOKIE|tojson }},
         csrfDataKey: {{ config.CSRF_DATA_KEY|tojson }},
         csrfHeader: {{ config.CSRF_HEADER|tojson }},
-        maxCreatedGames: {{ config.MAX_CREATED_GAMES|tojson }},
+        maxGamesPerUser: {{ config.MAX_GAMES_PER_USER|tojson }},
         maxPlayersDefault: {{ config.MAX_PLAYERS_DEFAULT|tojson}},
         maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
         maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }},
@@ -38,14 +39,16 @@
         game: id => {{ url_for('index', game_id='GAME_ID')|tojson }}.replace('GAME_ID', id),
         games: {{ url_for('games')|tojson }},
         cardImgDir: {{ url_for('static', filename=config.CARDS_URL)|tojson }},
-        cardBaseDir: {{ url_for('static', filename=config.CARD_BASES_URL)|tojson }}
+        cardBaseDir: {{ url_for('static', filename=config.CARD_BASES_URL)|tojson }},
+        messages: lang => {{ url_for('static', filename='messages/LANG.json')|tojson }}.replace('LANG', lang)
       },
       initialUser: {% if g.user %}{
         id: {{ g.user.id|tojson }},
         name: {{ g.user.name|tojson }}
       }{% else %}null{% endif %},
       initialGame: {% if game_id %}{{ game_id|tojson }}{% else %}null{% endif %},
-      language: {{ g.language|tojson }}
+      language: {{ g.language|tojson }},
+      messages: {}
     };
   </script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.2.1/js.cookie.min.js" integrity="sha256-oE03O+I6Pzff4fiMqwEGHbdfcW7a3GRRxlL+U49L5sA=" crossorigin="anonymous"></script>
@@ -55,7 +58,8 @@
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </head>
 <body>
-<h1><a class="app-name" href="{{ url_for('index') }}">{{ config.APPLICATION_NAME }}</a> &ndash; a party game for drunken people (<a href="https://github.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
+<ul id="messages"></ul>
+<h1><a class="app-name" href="{{ url_for('index') }}">{{ config.APPLICATION_NAME }}</a> &ndash; a party game for drunken people (<a href="https://gitlab.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
 <p>Yes, this looks awful. Which is why I&rsquo;m not a designer. Also I&rsquo;m still building the backend.</p>
 <p>Don&rsquo;t try to play this using anything older than the latest versions of Firefox or Chrome. It&rsquo;s gonna break (even more).</p>
 <div id="settings">
@@ -114,6 +118,7 @@
       {%- endfor %}
       </select>
     </label>
+    <label><input type="checkbox" data-bind="checked: newGame.remote"> Remote cards only</label>
     <button type="submit">Create new game</button>
   </form>
   <!-- /ko -->
@@ -144,14 +149,6 @@
     </ul>
     <!-- /ko -->
 
-    <p>Use cards:</p>
-    <ul data-bind="foreach: useCards">
-      <li>
-        <!-- ko text: name --><!-- /ko -->
-        <button type="button" data-bind="click: use">Use</button>
-      </li>
-    </ul>
-
     <button type="button" data-bind="click: leave">Leave game</button>
     <button type="button" data-bind="click: start, visible: canStart">Start game</button>
   </div>
@@ -161,10 +158,10 @@
     <button data-bind="click: drawCard, visible: canDraw">Draw card</button>
 
     <div id="use-cards">
-      <h2>Use cards</h2>
+      <h2 data-bind="visible: useCards().length">Use cards</h2>
       <ul data-bind="foreach: useCards">
         <li>
-          <span class="card-name" data-bind="text: name"></span>
+          <strong class="card-name" data-bind="text: `${name}:`"></strong> <span class="card-text" data-bind="html: text"></span>
           <button data-bind="click: use">Use</button>
         </li>
       </ul>
@@ -172,9 +169,9 @@
 
     <div class="card" data-bind="with: lastCard">
       <h2 data-bind="html: name"></h2>
-      <p data-bind="html: text"></p>
+      <p><strong data-bind="text: `${type}:`"></strong> <span data-bind="html: text"></span></p>
       <!-- <img class="card-img" alt="Card image" data-bind="attr: {src: $parent.cardImgURL(imgURL)}"> -->
-      <img class="card-img" alt="Card image" src="{{ url_for('static', filename='img/cards/404.png') }}">
+      <img class="card-img" alt="Card image" src="{{ url_for('static', filename='img/cards/404.webp') }}">
       <img class="card-base" alt="Card base" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}">
     </div>
 
