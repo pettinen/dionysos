@@ -1,4 +1,5 @@
 from functools import wraps
+import logging
 import uuid
 
 from flask import g, request
@@ -9,7 +10,7 @@ import jwt
 from . import app, db, redis_db, socketio
 from .errors import DatabaseError
 from .game import Game
-from .utils import fail
+from .utils import fail, set_cookie
 
 
 def _check_origin():
@@ -106,7 +107,7 @@ def login_required_factory(decorator_type):
             g.user = user
             response = func(*args, **kwargs)
             if clear_jwt_cookie and decorator_type == 'flask':
-                response.delete_cookie(app.config['JWT_COOKIE'])
+                unset_jwt_cookie()
             if decorator_type == 'socketio':
                 if len(args) == 0:
                     args.append({})
@@ -124,29 +125,25 @@ socket_login_required = login_required_factory('socketio')
 
 
 def set_jwt_cookie(response, user):
-    response.set_cookie(
+    set_cookie(
+        response,
         app.config['JWT_COOKIE'],
         jwt.encode(
             {'userID': user.id},
             app.config['SECRET_KEY'],
             algorithm=app.config['JWT_ALGORITHM']),
-        max_age=10 * 365 * 24 * 60 * 60,
-        secure=True,
-        httponly=True,
-        samesite='Lax')
+        httponly=True)
 
 
 def set_csrf_cookie(response):
-    response.set_cookie(
+    set_cookie(
+        response,
         app.config['CSRF_COOKIE'],
-        str(uuid.uuid4()),
-        max_age=10 * 365 * 24 * 60 * 60,
-        secure=True,
-        samesite='Lax')
+        uuid.uuid4().hex)
 
 
 def unset_jwt_cookie(response):
-    response.delete_cookie(app.config['JWT_COOKIE'])
+    set_cookie(response, app.config['JWT_COOKIE'], '', delete=True)
 
 
 class User():
@@ -158,8 +155,8 @@ class User():
             cur.close()
             raise DatabaseError('invalid-user-id')
         elif cur.rowcount > 1:
-            # TODO: log this
             cur.close()
+            logging.critical(f"Multiple users have the same ID {user_id}")
             raise DatabaseError('multiple-users-same-id')
         self.name, self.password_hash = cur.fetchone()
         cur.close()

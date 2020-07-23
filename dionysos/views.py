@@ -12,14 +12,14 @@ from .auth import (
     User
 )
 from .game import Card, Game
-from .utils import fail
+from .utils import fail, set_cookie
 
 
 @app.route('/')
 @app.route('/game/<game_id>')
 @login_optional
 def index(game_id=None):
-    # Language setting should really be in middleware
+    # Language setting should maybe be in middleware
     set_lang_cookie = False
     lang_cookie = request.cookies.get(app.config['LANGUAGE_COOKIE'])
     if lang_cookie is not None:
@@ -37,8 +37,7 @@ def index(game_id=None):
     response = make_response(render_template('index.html', game_id=game_id))
     set_csrf_cookie(response)
     if set_lang_cookie:
-        response.set_cookie(app.config['LANGUAGE_COOKIE'], language,
-            secure=True, samesite='Lax')
+        set_cookie(response, app.config['LANGUAGE_COOKIE'], language)
     return response
 
 
@@ -50,7 +49,7 @@ def cards_list():
         if name in ['Use', 'All']:
             name = f'\u201C{name}\u201D'
         return name
-    card_types = [{'id': id, 'name': quote(name)} for id, name in cur.fetchall()]
+    card_types = [{'id': id_, 'name': quote(name)} for id_, name in cur.fetchall()]
 
     cards = {type['id']: [] for type in card_types}
     cur.execute('SELECT type, name, text FROM all_cards ORDER BY text_id;')
