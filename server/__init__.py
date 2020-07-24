@@ -7,7 +7,7 @@ import psycopg2
 
 
 app = Flask(__name__, static_url_path='/')
-app.config.from_object('dionysos.config')
+app.config.from_object('server.config')
 
 log = app.config['LOG_FILE']
 if app.config['TESTING']:

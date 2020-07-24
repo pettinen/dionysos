@@ -1,6 +1,6 @@
-jQuery($ => {
-    'use strict';
+import ko from 'knockout';
 
+jQuery($ => {
     const app = dionysos;
     const socket = io({
         path: '/socket'
