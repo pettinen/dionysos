@@ -69,6 +69,8 @@
     <li>ID: <span data-bind="text: user() ? user().id : 'none'"></span></li>
     <li>Name: <span data-bind="text: user() ? user().name : 'none'"></span></li>
   </ul>
+  <h2 data-bind="visible: connected()">Connected</h2>
+  <h2 data-bind="visible: !connected()">Not connected</h2>
   </div>
 
   <h2>Settings</h2>
@@ -93,16 +95,18 @@
   <h2>Games</h2>
   <ul data-bind="foreach: joinableGames">
     <li>
-      <strong data-bind="text: name"></strong> by <span data-bind="text: creator.name"></span> (<span data-bind="text: playerCount"></span>/<span data-bind="text: maxPlayers"></span> players)
+      <strong data-bind="text: name"></strong> by <span data-bind="text: creator.name"></span>
+      (<span data-bind="text: playerCount"></span>/<span data-bind="text: maxPlayers"></span> players)
+      <span data-bind="visible: remote">(remote cards only)</span>
       <form data-bind="if: canJoin, submit: tryJoin">
         <button type="submit">Join<!-- ko if: passwordProtected --> (private)<!-- /ko --></button>
       </form>
     </li>
   </ul>
   </div>
-  <form data-bind="if: passwordPrompt() !== null, submit: joinGame">
+  <form data-bind="visible: passwordPrompt() !== null, submit: joinGame">
     <button data-bind="click: cancelPasswordPrompt">&larr; back</button>
-    <label>Game password: <input type="text" data-bind="value: gamePassword"></label>
+    <label>Game password: <input id="game-password" type="text" data-bind="value: gamePassword, valueUpdate: 'keyup'"></label>
     <button type="submit">Submit</button>
   </form>
 
@@ -120,6 +124,7 @@
     </label>
     <label><input type="checkbox" data-bind="checked: newGame.remote"> Remote cards only</label>
     <button type="submit">Create new game</button>
+    <span data-bind="visible: newGame.remote()">is remote</span>
   </form>
   <!-- /ko -->
 </div>

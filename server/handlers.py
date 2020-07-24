@@ -46,9 +46,10 @@ def create_game(*args):
     if 'remote' not in data or not isinstance(data['remote'], bool):
         return fail('invalid-remote')
 
+    # TODO: check against MAX_GAMES_PER_USER
     try:
         game = Game.create(data['name'], data['maxPlayers'],
-            data['remote'], data.get('password'))
+            data['remote'], password=data.get('password'))
     except (DatabaseError, ValueError) as e:
         return fail(e)
 
