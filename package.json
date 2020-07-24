@@ -7,6 +7,8 @@
   "author": "Jeremias Pettinen <hi@jeremi.as>",
   "license": "MIT",
   "devDependencies": {
-    "eslint": "^7.5.0"
+    "eslint": "^7.5.0",
+    "knockout": "^3.5.1",
+    "webpack": "^4.44.0"
   }
 }
