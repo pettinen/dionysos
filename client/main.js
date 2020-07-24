@@ -70,14 +70,13 @@ jQuery($ => {
     });
     socket.on('connect_error', error => {
         showMessage('connection-error');
-        console.log("Socket.IO connection error:", error);
+        log("Socket.IO connection error:", error);
     });
     socket.on('error', error => {
-        log("Socket.IO error:", error)
+        log("Socket.IO error:", error);
     });
     socket.on('disconnect', () => {
         settings.connected(false);
-        showMessage('disconnected');
     });
 
 
@@ -150,7 +149,7 @@ jQuery($ => {
 
     class Game {
         constructor(data) {
-            for (const property of ['id', 'name', 'creator', 'maxPlayers', 'passwordProtected'])
+            for (const property of ['id', 'name', 'creator', 'maxPlayers', 'passwordProtected', 'remote'])
                 this[property] = data[property];
             for (const property of ['playerCount', 'started', 'ended'])
                 this[property] = ko.observable(data[property]);
@@ -168,9 +167,9 @@ jQuery($ => {
                 }
                 password = password.trim();
                 data.password = password;
-                console.log(`Attempting to join game ${this.id} with password '${password}'`);
+                debug(`Attempting to join game ${this.id} with password '${password}'`);
             } else {
-                console.log(`Attempting to join game ${this.id}`);
+                debug(`Attempting to join game ${this.id}`);
             }
             emit('join-game', data, response => {
                 if (response.success) {
@@ -194,12 +193,10 @@ jQuery($ => {
         tryJoin() {
             if (this.passwordProtected) {
                 const storedPassword = localStorage.getItem(`game-${this.id}-password`);
-                if (storedPassword === null) {
-                    gamesList.passwordPrompt(this.id);
-                } else {
-                    log("Password found in localStorage");
+                if (storedPassword === null)
+                    gamesList.passwordPrompt(this);
+                else
                     this.join(storedPassword);
-                }
             } else {
                 this.join();
             }
@@ -281,7 +278,8 @@ jQuery($ => {
             .then(response => response.json())
             .then(response => {
                 if (response.success) {
-                    currentGame.leave();
+                    if (currentGame.game())
+                        currentGame.leave();
                     this.user(null);
                     replaceURL(null);
                     gamesList.newGame.name('');
@@ -384,8 +382,13 @@ jQuery($ => {
             return this.activeCardsMap.get(userID);
         }
 
-        cardImgURL = filename => `${app.paths.cardImgDir}${filename}`;
-        cardBaseURL = filename => `${app.paths.cardBaseDir}${filename}`;
+        cardImgURL(filename) {
+            return `${app.paths.cardImgDir}${filename}`;
+        }
+
+        cardBaseURL(filename) {
+            return `${app.paths.cardBaseDir}${filename}`;
+        }
 
         clear() {
             this.game(null);
@@ -426,6 +429,7 @@ jQuery($ => {
                 return;
             }
             const gameID = this.game().id;
+            const gameName = this.game().name;
             this.clear();
             emit('leave-game', {id: gameID}, response => {
                 if (!response) {
@@ -433,7 +437,7 @@ jQuery($ => {
                 } else if (response.success) {
                     this.clear();
                     replaceURL(null);
-                    showMessage('game-left-self');
+                    showMessage('game-left-self', gameName);
                 } else {
                     showMessage(response.reason);
                 }
@@ -509,7 +513,7 @@ jQuery($ => {
         createGame() {
             const errors = [];
 
-            const name = this.newGame.name();
+            let name = this.newGame.name();
             if (typeof name !== 'string' || !name.trim())
                 errors.push(['invalid-name']);
             name = name.trim();
@@ -520,7 +524,7 @@ jQuery($ => {
                     || maxPlayers > app.config.maxPlayersMax)
                 errors.push(['invalid-max-players']);
 
-            const password = this.newGame.password();
+            let password = this.newGame.password();
             if (typeof password === 'string')
                 password = password.trim();
             else
@@ -574,8 +578,9 @@ jQuery($ => {
         }
 
         joinGame() {
+            debug("Game password is", this.gamePassword());
             if (this.passwordPrompt() !== null)
-                this.game(this.passwordPrompt()).join(this.gamePassword());
+                this.passwordPrompt().join(this.gamePassword());
         }
 
         async refresh() {
@@ -665,7 +670,8 @@ jQuery($ => {
     });
 
     socket.on('game-deleted', data => {
-        log('game-deleted', data);
+        debug('A game was deleted: ', data);
+        localStorage.removeItem(`game-${data.id}-password`);
         if (currentGame.game() && currentGame.game().id === data.id)
             currentGame.clear();
         gamesList.games.remove(game => game.id === data.id);
@@ -836,7 +842,14 @@ jQuery($ => {
     });
 
     currentGame.on('card-effect', data => {
-        showMessage(data.message)
+        showMessage(data.message);
     });
 
+
+    $('#game-password').keydown(event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            gamesList.joinGame();
+        }
+    });
 });
