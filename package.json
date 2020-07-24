@@ -6,9 +6,11 @@
   "repository": "https://gitlab.com/pettinen/dionysos.git",
   "author": "Jeremias Pettinen <hi@jeremi.as>",
   "license": "MIT",
-  "devDependencies": {
-    "eslint": "^7.5.0",
+  "dependencies": {
     "knockout": "^3.5.1",
     "webpack": "^4.44.0"
+  },
+  "devDependencies": {
+    "eslint": "^7.5.0"
   }
 }
