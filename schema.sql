@@ -14,7 +14,8 @@ CREATE TABLE "games" (
     "creator" integer NOT NULL REFERENCES "users" ("id"),
     "max_players" smallint NOT NULL,
     "started" boolean NOT NULL DEFAULT FALSE,
-    "ended" boolean NOT NULL DEFAULT FALSE
+    "ended" boolean NOT NULL DEFAULT FALSE,
+    "remote" boolean NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE "users_games" (

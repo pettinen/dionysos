@@ -82,18 +82,18 @@ class Game:
                 unique_id = True
 
         cur.execute(
-            'INSERT INTO games (id, name, password_hash, creator, max_players)'
-            ' VALUES (%s, %s, %s, %s, %s);',
-            [id_, name, password_hash, g.user.id, max_players])
+            'INSERT INTO games (id, name, password_hash, creator, max_players, remote)'
+            ' VALUES (%s, %s, %s, %s, %s, %s);',
+            [id_, name, password_hash, g.user.id, max_players, remote])
         if cur.rowcount == 0:
             cur.close()
-            # TODO: log this
+            logging.warning(f"Failed to insert game {id_} into database")
             raise DatabaseError('insert-failed')
         elif cur.rowcount > 1:
             pass # TODO: log this
         cur.close()
 
-        game = cls(game_id)
+        game = cls(id_)
         socketio.emit('game-created', game.public_info)
         return game
 
@@ -101,16 +101,16 @@ class Game:
         if not isinstance(game_id, str):
             raise ValueError('invalid-game-id')
         cur = db.cursor()
-        cur.execute('SELECT id, name, password_hash, creator, max_players, started, ended'
-                    ' FROM games WHERE id = %s;', [game_id])
+        cur.execute('''
+            SELECT id, name, password_hash, creator, max_players, started, ended, remote
+            FROM games WHERE id = %s;''', [game_id])
         if cur.rowcount == 0:
             cur.close()
             raise ValueError('invalid-game-id')
         elif cur.rowcount > 1:
             pass # TODO: log this
         self.id, self.name, self.password_hash, creator_id, self.max_players, \
-            self.started, self.ended = cur.fetchone()
-        self.remote = True  # TODO: create UI
+            self.started, self.ended, self.remote = cur.fetchone()
 
         from .auth import User
         self.creator = User(creator_id)
@@ -347,7 +347,8 @@ class Game:
             'playerCount': self.player_count,
             'maxPlayers': self.max_players,
             'started': self.started,
-            'ended': self.ended
+            'ended': self.ended,
+            'remote': self.remote
         }
 
     def redis_key(self, key):
