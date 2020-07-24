@@ -3,7 +3,7 @@ uwsgi:
     chmod-socket: 660
     manage-script-name: true
     master: true
-    mount: /=dionysos:app
+    mount: /=server:app
     uid: dionysos
     gid: http
     gevent: 1000
