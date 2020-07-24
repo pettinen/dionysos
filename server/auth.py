@@ -86,22 +86,22 @@ def login_required_factory(decorator_type):
             clear_jwt_cookie = False
 
             if app.config['JWT_COOKIE'] not in request.cookies:
-                # log(log_msg_start + "without a JWT cookie")
+                logging.info(log_msg_start + "without a JWT cookie")
                 return failure
             try:
                 user_id = _get_user_id_from_jwt()
             except jwt.PyJWTError as e:
-                # log(log_msg_start + "with an invalid JWT")
-              clear_jwt_cookie = True
-              return failure
+                logging.info(log_msg_start + "with an invalid JWT")
+                clear_jwt_cookie = True
+                return failure
             if user_id is None:
-                # log(log_msg_start + "with a JWT not containing a user ID")
+                logging.info(log_msg_start + "with a JWT not containing a user ID")
                 clear_jwt_cookie = True
                 return failure
             try:
                 user = User(user_id)
             except DatabaseError:
-                # log(log_msg_start + "with a JWT containing a nonexistent user ID")
+                logging.info(log_msg_start + "with a JWT containing a nonexistent user ID")
                 clear_jwt_cookie = True
                 return failure
             g.user = user
@@ -125,14 +125,17 @@ socket_login_required = login_required_factory('socketio')
 
 
 def set_jwt_cookie(response, user):
-    set_cookie(
-        response,
-        app.config['JWT_COOKIE'],
-        jwt.encode(
-            {'userID': user.id},
-            app.config['SECRET_KEY'],
-            algorithm=app.config['JWT_ALGORITHM']),
-        httponly=True)
+    if user is None:
+        unset_jwt_cookie(response)
+    else:
+        set_cookie(
+            response,
+            app.config['JWT_COOKIE'],
+            jwt.encode(
+                {'userID': user.id},
+                app.config['SECRET_KEY'],
+                algorithm=app.config['JWT_ALGORITHM']),
+            httponly=True)
 
 
 def set_csrf_cookie(response):
