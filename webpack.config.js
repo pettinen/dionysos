@@ -1,3 +1,7 @@
 module.exports = {
-  entry: './client/main.js'
+  entry: './client/index.js',
+  mode: 'development',
+  output: {
+    filename: 'index.js'
+  }
 };

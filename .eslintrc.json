@@ -8,6 +8,9 @@
         "ecmaVersion": 11,
         "sourceType": "module"
     },
+    "globals": {
+        "dionysos": "readonly"
+    },
     "rules": {
         "accessor-pairs": "error",
         "array-bracket-newline": "error",
@@ -212,6 +215,7 @@
         "no-unneeded-ternary": "error",
         "no-unreachable-loop": "error",
         "no-unused-expressions": "error",
+        "no-unused-vars": "warn",
         "no-use-before-define": "off",
         "no-useless-backreference": "error",
         "no-useless-call": "error",
@@ -225,10 +229,7 @@
         "no-warning-comments": "off",
         "no-whitespace-before-property": "error",
         "object-curly-newline": "error",
-        "object-curly-spacing": [
-            "error",
-            "never"
-        ],
+        "object-curly-spacing": ["error", "always"],
         "object-property-newline": "error",
         "object-shorthand": "off",
         "one-var": "off",
@@ -264,13 +265,15 @@
             "error",
             "never"
         ],
-        "semi": "error",
+        "semi": ["error", "never"],
         "semi-spacing": "error",
         "semi-style": [
             "error",
             "last"
         ],
-        "sort-imports": "error",
+        "sort-imports": ["error", {
+            "allowSeparatedGroups": true
+        }],
         "sort-keys": "off",
         "sort-vars": "error",
         "space-before-blocks": "error",
@@ -285,7 +288,7 @@
             "error",
             "always"
         ],
-        "strict": "off",
+        "strict": "error",
         "switch-colon-spacing": "error",
         "symbol-description": "error",
         "template-curly-spacing": [

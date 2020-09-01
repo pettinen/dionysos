@@ -18,11 +18,42 @@ h1 {
     color: inherit;
 }
 
-.card-img, .card-base {
-    max-height: 200px;
+.card {
+    width: 21vh;
+    height: 30vh;
+    color: black;
+    font-size: 1.2vh;
+}
+.card img {
+    display: block;
+}
+.card p {
+    position: relative;
+    left: 5%;
+    top: -96%;
+    width: 88%;
+    height: 28%;
+    padding: 0 1%;
+}
+.card h2 {
+    position: relative;
+    left: 5%;
+    top: -149.2%;
+    width: 90%;
+    font-size: 125%;
+}
+.card-base {
+    height: 100%;
+}
+.card-img {
+    position: relative;
+    height: 47.35%;
+    top: -91%;
+    left: 4%;
 }
 
 #game-log {
+    display: none;
     height: 10vh;
     position: absolute;
     overflow-y: scroll;

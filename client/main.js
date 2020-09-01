@@ -1,4 +1,8 @@
+import Cookies from 'js-cookie';
+import io from 'socket.io-client';
+import jQuery from 'jquery';
 import ko from 'knockout';
+
 
 jQuery($ => {
     const app = dionysos;
@@ -46,8 +50,8 @@ jQuery($ => {
 
     const showDebugMessage = function(message = '') {
         if (message)
-            message = ` (${reason})`;
-        showMessage(`Unexpected error${reason}. If your game is broken or you have`
+            message = ` (${message})`;
+        showMessage(`Unexpected error${message}. If your game is broken or you have`
             + ` more information about this bug, please contact ${app.config.adminEmail}`);
     };
 
@@ -639,9 +643,6 @@ jQuery($ => {
         .then(response => {
             response.forEach(card => cards.set(card.id, new Card(card)));
         });
-    const card = function(id) {
-        return cards.get(id) || null;
-    };
 
 
     socket.on('game-created', data => {
@@ -686,7 +687,7 @@ jQuery($ => {
     });
 
     currentGame.on('game-left', data => {
-        const players = currentGame.players.remove(player => player.id === data.user);
+        const players = currentGame.players.remove(player => player.id === data.userID);
         if (players.length !== 1)
             log('invalid-player', 'game-left', players);
         for (const player of players) {

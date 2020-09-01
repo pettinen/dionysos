@@ -121,10 +121,22 @@ Event: game-updated
 WebSocket messages from server to clients in room game-<id>
 -----------------------------------------------------------
 
+Event: active-card-added
+- argument: {
+    cardID: int,
+    userID: int
+  }
+
+Event: active-card-removed
+- argument: {
+    cardID: int,
+    userID: int
+  }
+
 Event: card-discarded
 - argument: {
-    card: int,
-    user: int
+    cardID: int,
+    userID: int
   }
 
 Event: game-joined
@@ -135,21 +147,21 @@ Event: game-joined
 
 Event: game-left
 - argument: {
-    user: int
+    userID: int
   }
 
 Event: new-turn
 - argument: {
-    user: int
+    userID: int
   }
 
 Event: private-card-drawn
 - argument: {
-    user: int
+    userID: int
   }
 
 Event: public-card-drawn
 - argument: {
-    card: int,
-    user: int
+    cardID: int,
+    userID: int
   }

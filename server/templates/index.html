@@ -14,12 +14,14 @@
   <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='img/favicons/favicon-96x96.png') }}">
   <link rel="icon" type="image/png" sizes="256x256" href="{{ url_for('static', filename='img/favicons/favicon-256x256.png') }}">
   <link rel="icon" type="image/svg+xml" sizes="any" href="{{ url_for('static', filename='img/favicons/favicon.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/normalize.min.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
   <script>
     const dionysos = {
       config: {
         debug: {{ config.TESTING|tojson }},
-        adminEmail: {{ config.ADMIN_EMAIL|tojson }},
+        adminContact: {{ config.ADMIN_CONTACT|tojson }},
+        defaultLanguage: {{ config.DEFAULT_LANGUAGE|tojson }},
         csrfCookie: {{ config.CSRF_COOKIE|tojson }},
         csrfDataKey: {{ config.CSRF_DATA_KEY|tojson }},
         csrfHeader: {{ config.CSRF_HEADER|tojson }},
@@ -28,7 +30,7 @@
         maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
         maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }},
         minPlayersToStart: {{ config.MIN_PLAYERS_TO_START|tojson }},
-        passwordMinLength: {{ config.PASSWORD_MIN_LENGTH|tojson }}
+        passwordMinLength: {{ config.PASSWORD_MIN_LENGTH|tojson }},
       },
       paths: {
         index: {{ url_for('index')|tojson }},
@@ -51,18 +53,17 @@
       messages: {}
     };
   </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-cookie/2.2.1/js.cookie.min.js" integrity="sha256-oE03O+I6Pzff4fiMqwEGHbdfcW7a3GRRxlL+U49L5sA=" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
-  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/knockout/3.5.1/knockout-latest.min.js" integrity="sha512-vs7+jbztHoMto5Yd/yinM4/y2DOkPLt0fATcN+j+G4ANY2z4faIzZIOMkpBmWdcxt+596FemCh9M18NUJTZwvw==" crossorigin="anonymous"></script> -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.slim.js" integrity="sha256-Dul4c09cdrWKXVtallPxF558lwxMwCC8dXJdZ0PVW54=" crossorigin="anonymous"></script>
-  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
 </head>
 <body>
+<div id="topbar">
+
+</div>
 <ul id="messages"></ul>
-<h1><a class="app-name" href="{{ url_for('index') }}">{{ config.APPLICATION_NAME }}</a> &ndash; a party game for drunken people (<a href="https://gitlab.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
-<p>Yes, this looks awful. Which is why I&rsquo;m not a designer. Also I&rsquo;m still building the backend.</p>
-<p>Don&rsquo;t try to play this using anything older than the latest versions of Firefox or Chrome. It&rsquo;s gonna break (even more).</p>
-<div id="settings">
+<div id="index">
+  <h1><a class="app-name" href="{{ url_for('index') }}">{{ config.APPLICATION_NAME }}</a> &ndash; a party game for drunken people (<a href="https://gitlab.com/pettinen/dionysos">git</a> | <a href="/cards">list of cards</a>)</h1>
+  <p>Yes, this looks awful. Which is why I&rsquo;m not a web designer. Also I&rsquo;m still building the backend.</p>
+  <p>Don&rsquo;t try to play this using anything older than the latest versions of Firefox or Chrome. It&rsquo;s gonna break (even more).</p>
   <div style="float: right;">
   <h2>Current user</h2>
   <ul>
@@ -83,30 +84,30 @@
   <!-- /ko -->
   <!-- ko ifnot: user -->
   <form data-bind="submit: login">
-    <label>Username: <input type="text" value="{{ g.user.name }}" data-bind="value: username"></label><br>
-    <label>Password: <input type="password" data-bind="value: password"></label><br>
+    <label>Username: <input type="text" value="{{ g.user.name }}" data-bind="value: credentials.username"></label><br>
+    <label>Password: <input type="password" data-bind="value: credentials.password"></label><br>
     <button type="submit">Login</button> or <button data-bind="click: register">Register</button>
   </form>
   <!-- /ko -->
 </div>
 
-<div id="games" data-bind="if: visible">
-  <div id="games-list" data-bind="if: passwordPrompt() === null">
+<div id="games" data-bind="visible: inLobby">
+  <div id="games-list" data-bind="if: joinPasswordPrompt() === null">
   <h2>Games</h2>
   <ul data-bind="foreach: joinableGames">
     <li>
       <strong data-bind="text: name"></strong> by <span data-bind="text: creator.name"></span>
       (<span data-bind="text: playerCount"></span>/<span data-bind="text: maxPlayers"></span> players)
       <span data-bind="visible: remote">(remote cards only)</span>
-      <form data-bind="if: canJoin, submit: tryJoin">
+      <form data-bind="if: !full(), submit: tryJoin">
         <button type="submit">Join<!-- ko if: passwordProtected --> (private)<!-- /ko --></button>
       </form>
     </li>
   </ul>
   </div>
-  <form data-bind="visible: passwordPrompt() !== null, submit: joinGame">
-    <button data-bind="click: cancelPasswordPrompt">&larr; back</button>
-    <label>Game password: <input id="game-password" type="text" data-bind="value: gamePassword, valueUpdate: 'keyup'"></label>
+  <form data-bind="visible: joinPasswordPrompt() !== null, submit: joinGame">
+    <button data-bind="click: cancelJoinPasswordPrompt">&larr; back</button>
+    <label>Game password: <input class="join-password" type="text" data-bind="value: joinPassword, valueUpdate: 'keyup'"></label>
     <button type="submit">Submit</button>
   </form>
 
@@ -129,7 +130,7 @@
   <!-- /ko -->
 </div>
 
-<div id="current-game" data-bind="if: game">
+<div id="current-game" data-bind="with: currentGame, visible: inGame()">
   <div style="float: right;">
     <h2>Current game</h2>
     <p>Link: <a data-bind="text: url, attr: { href: url }"></a></p>
@@ -143,13 +144,13 @@
     <!-- /ko -->
 
     <p>Active cards (all):</p>
-    <ul data-bind="foreach: activeCards('all')">
+    <ul data-bind="foreach: activeCardsOfUser('all')">
       <li data-bind="text: name"></li>
     </ul>
 
     <!-- ko foreach: players -->
     <p>Active cards (<!-- ko text: name --><!-- /ko -->):</p>
-    <ul data-bind="foreach: $parent.activeCards(id)">
+    <ul data-bind="foreach: $parent.activeCardsOfUser(id)">
       <li data-bind="text: name"></li>
     </ul>
     <!-- /ko -->
@@ -173,14 +174,12 @@
     </div>
 
     <div class="card" data-bind="with: lastCard">
-      <h2 data-bind="html: name"></h2>
-      <p><strong data-bind="text: `${type}:`"></strong> <span data-bind="html: text"></span></p>
-      <!-- <img class="card-img" alt="Card image" data-bind="attr: {src: $parent.cardImgURL(imgURL)}"> -->
-      <img class="card-img" alt="Card image" src="{{ url_for('static', filename='img/cards/404.webp') }}">
-      <img class="card-base" alt="Card base" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}">
+      <img class="card-base" alt="Card base" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}"><!-- <img class="card-img" alt="Card image" data-bind="attr: {src: $parent.cardImgURL(imgURL)}"> --><img class="card-img" alt="Card image" src="{{ url_for('static', filename='img/cards/404.webp') }}">
+      <h2 data-bind="html:name"></h2>
+      <p data-bind="html:text"></p>
     </div>
-
-    <ul id="game-log" data-bind="foreach: gameLog">
+    </div>
+    <ul id="game-log" data-bind="foreach: log">
       <li data-bind="text: $data"></li>
     </ul>
   </div>

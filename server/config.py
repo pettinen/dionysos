@@ -1,4 +1,4 @@
-ADMIN_EMAIL = 'hi@jeremi.as'
+ADMIN_CONTACT = '<a href="mailto:hi@jeremi.as">hi@jeremi.as</a>'
 APPLICATION_NAME = 'Dionysos'
 APPLICATION_ROOT = '/'
 COOKIE_PATH = '/'
