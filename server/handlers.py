@@ -14,14 +14,6 @@ def connect():
         redis_db.hset('user-sids', g.user.id, request.sid)
 
 
-@socketio.on('disconnect')
-@login_optional
-def disconnect():
-    if g.user is not None:
-        redis_db.hdel('user-sids', g.user.id)
-        g.user.leave_game()
-
-
 @socketio.on('create-game')
 @socket_login_required
 def create_game(*args):

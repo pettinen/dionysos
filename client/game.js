@@ -6,7 +6,7 @@ import {
     gamePasswordKey,
     replaceURL,
     showMessage
-} from './functions'
+} from './utils'
 import { User } from './user'
 
 

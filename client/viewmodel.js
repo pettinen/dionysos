@@ -7,7 +7,7 @@ import {
     replaceURL,
     showMessage,
     showMessages
-} from './functions'
+} from './utils'
 import { Game } from './game'
 import { User } from './user'
 
@@ -17,7 +17,7 @@ export class ViewModel {
         /*
          * General settings
          */
-        this.user = ko.observable((dionysos.initialUser !== null)
+        this.user = ko.observable(dionysos.initialUser
             ? new User(dionysos.initialUser)
             : null)
         this.credentials = {
@@ -29,7 +29,7 @@ export class ViewModel {
         this.view = ko.pureComputed(() => {
             if (this.user() === null)
                 return 'logged-out'
-            if (this.currentGame && this.currentGame.game() !== null)
+            if (this.currentGame && this.currentGame.game())
                 return 'game'
             return 'lobby'
         })
@@ -77,8 +77,7 @@ export class ViewModel {
                 return this.currentGame.currentPlayer().id === this.user().id
             }),
             canStart: ko.pureComputed(() => {
-                const game = this.currentGame.game()
-                if (!game || game.started() || game.ended() || !this.currentGame.isCreator())
+                if (this.currentGame.inProgress() || !this.currentGame.isCreator())
                     return false
                 return this.currentGame.players().length >= dionysos.config.minPlayersToStart
             }),
@@ -89,7 +88,7 @@ export class ViewModel {
             isCreator: ko.pureComputed(() => {
                 if (!this.user() || !this.inGame())
                     return false
-                return this.currentGame.game().creator === this.user().id
+                return this.currentGame.game().creator.id === this.user().id
             }),
             url: ko.pureComputed(() => {
                 if (!this.inGame())
@@ -106,6 +105,20 @@ export class ViewModel {
                 this.players.removeAll()
                 this.log.removeAll()
                 this.game(null)
+            },
+            drawCard() {
+                if (!this.canDraw()) {
+                    showMessage('not-in-turn')
+                    return
+                }
+                emit('draw-card', {}, response => {
+                    if (!response) {
+                        showMessage('connection-error')
+                        return
+                    }
+                    if (!response.success)
+                        showMessage(response.reason)
+                })
             },
             leave() {
                 if (!this.game())
@@ -163,6 +176,14 @@ export class ViewModel {
     cancelJoinPasswordPrompt() {
         this.joinPasswordPrompt(null)
         this.joinPassword('')
+    }
+
+    cardBaseURL(filename) {
+        return dionysos.paths.cardBaseDir + filename
+    }
+
+    cardImgURL(filename) {
+        return dionysos.paths.cardImgDir + filename
     }
 
     createGame() {

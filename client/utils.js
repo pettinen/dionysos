@@ -2,6 +2,8 @@ import $ from 'jquery'
 import Cookies from 'js-cookie'
 import { sprintf } from 'sprintf-js'
 
+import { Card } from './card'
+
 
 export const changeLanguage = async function(language) {
     if (dionysos.messages[language]) {
@@ -33,6 +35,16 @@ export const emit = function(event, data, ...args) {
     dionysos.socket.emit(event, data, ...args)
 }
 
+export const fetchCards = async function() {
+    dionysos.cards = new Map()
+    await fetch(dionysos.paths.cards)
+        .then(response => response.json())
+        .then(response => {
+            response.forEach(card => dionysos.cards.set(card.id, new Card(card)))
+        })
+    // TODO: handle errors
+}
+
 export const formatMessage = function(messageID, ...args) {
     return `${messageID}: ${args.join(', ')}`
     // return sprintf(getMessage(messageID), ...args)
@@ -40,7 +52,7 @@ export const formatMessage = function(messageID, ...args) {
 
 export const gameLog = function(messageID, ...args) {
     // TODO: display these in the UI
-    console.log("[GAMELOG]", messageID, ...args)
+    console.log("[GAMELOG]", formatMessage(messageID, ...args))
 }
 
 export const gamePasswordKey = function(id) {

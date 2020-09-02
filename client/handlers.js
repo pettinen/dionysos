@@ -1,4 +1,4 @@
-import { debug, gameLog, gamePasswordKey, log, showMessage } from './functions'
+import { debug, gameLog, gamePasswordKey, log, showMessage } from './utils'
 import { Game } from './game'
 import { User } from './user'
 

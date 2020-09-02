@@ -174,7 +174,7 @@
     </div>
 
     <div class="card" data-bind="with: lastCard">
-      <img class="card-base" alt="Card base" data-bind="attr: {src: $parent.cardBaseURL(baseURL)}"><!-- <img class="card-img" alt="Card image" data-bind="attr: {src: $parent.cardImgURL(imgURL)}"> --><img class="card-img" alt="Card image" src="{{ url_for('static', filename='img/cards/404.webp') }}">
+      <img class="card-base" alt="Card base" data-bind="attr: {src: $root.cardBaseURL(baseURL)}"><!-- <img class="card-img" alt="Card image" data-bind="attr: {src: $root.cardImgURL(imgURL)}"> --><img class="card-img" alt="Card image" src="{{ url_for('static', filename='img/cards/404.webp') }}">
       <h2 data-bind="html:name"></h2>
       <p data-bind="html:text"></p>
     </div>
