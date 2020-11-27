@@ -1,0 +1,57 @@
+HTTP
+
+POST /login
+- body: {
+    username: string,
+    password: string
+  }
+- return on success: {
+    success: true
+  }
+- return on failure: {
+    success: false,
+    reason: <
+      already-logged-in,
+      json-loading-failed,
+      empty-username,
+      empty-password,
+      db-error,
+      wrong-credentials
+    >
+  }
+
+
+WEBSOCKET (arguments are json)
+
+Argument is a JSON object. All arguments from the client must also include
+the CSRF token specified in config.CSRF_DATA_KEY.
+
+
+
+FROM SERVER TO ROOM
+
+add-active-card
+- argument: { userID, cardID }
+- note: userID can be 'all'
+
+remove-active-card
+- argument: { userID, cardID }
+- note: userID can be 'all'
+
+
+player-order-changed
+- argument: [player1_id, player2_id, ...]
+
+game-ended
+- no arguments
+
+use-card-drawn
+- argument: { userID }
+
+add-active-card
+- argument: { cardID, userID }
+- note: userID may be 'all'
+
+remove-active-card
+- argument: { cardID, userID }
+- note: userID may be 'all'

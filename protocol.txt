@@ -1,57 +1,167 @@
-HTTP
+Arguments are JSON objects. All arguments the client sends must
+also include the CSRF token specified in config.CSRF_DATA_KEY.
 
-POST /login
-- body: {
-    username: string,
-    password: string
+
+WebSocket messages from client to server, lobby
+-----------------------------------------------
+
+On failure, all WebSocket messages from client to server return
+{
+  success: false,
+  reason: <
+    invalid-arguments,
+    invalid-game-id,
+    invalid-game-name,
+    invalid-max-players,
+    invalid-password,
+    not-creator,
+    not-in-game
+  >
+}
+The list of reason strings is not yet exhaustive.
+
+
+Event: create-game
+- argument: {
+    name: string,
+    maxPlayers: int,
+    password: string (optional)
+  }
+- return on success: {
+    success: true,
+    gameID: int
+  }
+
+Event: join-game
+- argument: {
+    id: int,
+    password: string (optional if game is public)
+  }
+- return on success: {
+    success: true,
+    players: [list of {
+      id: int,
+      name: string
+    }]
+  }
+
+Event: leave-game
+- argument: {
+    id: int
   }
 - return on success: {
     success: true
   }
-- return on failure: {
-    success: false,
-    reason: <
-      already-logged-in,
-      json-loading-failed,
-      empty-username,
-      empty-password,
-      db-error,
-      wrong-credentials
-    >
+
+Event: start-game
+- argument: {
+    id: int
+  }
+- return on success: {
+    success: true
   }
 
 
-WEBSOCKET (arguments are json)
+WebSocket messages from client to server, gameplay
+--------------------------------------------------
 
-Argument is a JSON object. All arguments from the client must also include
-the CSRF token specified in config.CSRF_DATA_KEY.
-
-
-
-FROM SERVER TO ROOM
-
-add-active-card
-- argument: { userID, cardID }
-- note: userID can be 'all'
-
-remove-active-card
-- argument: { userID, cardID }
-- note: userID can be 'all'
+On failure, all of these return
+{
+  success: false,
+  reason: <
+    game-ended,
+    invalid-arguments,
+    not-in-game,
+    not-in-turn
+  >
+}
+List of reasons not exhaustive.
 
 
-player-order-changed
-- argument: [player1_id, player2_id, ...]
+Event: draw-card
+- argument: { } (empty object)
+- return on success: {
+    success: true,
+    id: int
+  }
 
-game-ended
-- no arguments
+Event: use-card
+- argument: {
+    id: int
+  }
+- return on success: {
+    success: true
+  }
 
-use-card-drawn
-- argument: { userID }
 
-add-active-card
-- argument: { cardID, userID }
-- note: userID may be 'all'
+WebSocket messages from server to all clients
+---------------------------------------------
 
-remove-active-card
-- argument: { cardID, userID }
-- note: userID may be 'all'
+Event: game-deleted
+- argument: {
+    id: int
+  }
+Event: game-ended
+- argument: {
+    id: int
+  }
+
+Event: game-started
+- argument: {
+    id: int
+  }
+
+Event: game-updated
+- argument: {
+    id: int,
+    playerCount: int
+  }
+
+
+WebSocket messages from server to clients in room game-<id>
+-----------------------------------------------------------
+
+Event: active-card-added
+- argument: {
+    cardID: int,
+    userID: int
+  }
+
+Event: active-card-removed
+- argument: {
+    cardID: int,
+    userID: int
+  }
+
+Event: card-discarded
+- argument: {
+    cardID: int,
+    userID: int
+  }
+
+Event: game-joined
+- argument: {
+    id: int (user ID),
+    name: string
+  }
+
+Event: game-left
+- argument: {
+    userID: int
+  }
+
+Event: new-turn
+- argument: {
+    userID: int
+  }
+
+Event: private-card-drawn
+- argument: {
+    userID: int
+  }
+
+Event: public-card-drawn
+- argument: {
+    cardID: int,
+    userID: int
+  }
