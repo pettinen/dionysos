@@ -92,14 +92,14 @@ def too_many_cards(game):
 
 
 card_handlers = {
-    'daring': daring,
-    'greed': greed,
-    'artist': artist,
-    'magic': magic,
-    'gotta_go_fast': gotta_go_fast,
-    'distracted': distracted,
-    'to_the_loo': to_the_loo,
-    'too_many_cards': too_many_cards
+#    'daring': daring,
+#    'greed': greed,
+#    'artist': artist,
+#    'magic': magic,
+#    'gotta_go_fast': gotta_go_fast,
+#    'distracted': distracted,
+#    'to_the_loo': to_the_loo,
+#    'too_many_cards': too_many_cards
 }
 
 
@@ -130,6 +130,6 @@ def generosity(game):
 
 
 after_draw_handlers = [
-    generosity,
+    #generosity,
     #spidey_sense
 ]
