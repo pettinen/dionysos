@@ -91,7 +91,6 @@ INSERT INTO "all_cards" ("text_id", "name", "type", "text", "visibility", "durat
     ('honesty', 'Honesty', 'act', 'Pick a player who will ask you a question. Answer truthfully or finish your drink.', 'all', 0, true),
     ('hug_or_chug', 'Hug or Chug', 'act', 'Hug every other player or finish your drink.', 'all', 0, false),
     ('loyalty', 'Loyalty', 'act', 'Pick a player. The next time they have to finish their drink, drink half of it in their stead.', 'all', 0, false),
-    ('matchmaker', 'Matchmaker', 'act', 'Order two players to kiss. If they do, take four sips. If they do not, they take three sips each.', 'all', 0, false),
     ('mimic', 'Mimic', 'act', U&'Imitate another player. Others rate your act on a scale of 0\20135. The imitated player takes a sip for every five points.', 'all', 0, true),
     ('monarch', 'Monarch', 'act', 'You are the Queen or King of the game. Everyone else toasts in your honor and finishes their drink.', 'all', 0, true),
     ('one_for_all', 'One for All?', 'act', 'Either take five sips or order everyone else to take two sips.', 'all', 0, true),
