@@ -13,6 +13,6 @@ I can't guarantee that any but the latest versions of the various
 dependencies work.
 At the very least you'll need Python 3.6 and Postgres 10.0.
 
-Compability is not a priority. Rather, I'm using this project to learn about
-some of the newest web technologies. Don't expect the site to work with
-anything except the latest Firefox and Chrome.
+Compatibility is not a priority. Rather, I'm using this project to learn
+about some of the newer web technologies. Don't expect the site to work
+with anything except the latest Firefox and Chrome.
