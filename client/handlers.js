@@ -70,16 +70,11 @@ export const registerHandlers = function(socket, vm) {
     })
 
     socket.on('game-ended', data => {
-        const game = vm.findGame(data.gameID)
-        if (!game) {
-            log("Invalid game ID in 'game-ended'")
-            return
-        }
+        const game = vm.currentGame.game()
+        game.started(false)
         game.ended(true)
-        if (vm.inGame() && game.id === vm.currentGame.game().id) {
-            vm.currentGame.reset()
-            gameLog('game-ended')
-        }
+        vm.currentGame.reset()
+        gameLog('game-ended')
     })
 
     socket.on('game-joined', data => {
