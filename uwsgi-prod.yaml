@@ -1,4 +1,5 @@
 uwsgi:
+    daemonize: uwsgi.log
     socket: /run/dionysos/dionysos.sock
     chmod-socket: 660
     manage-script-name: true
@@ -6,6 +7,6 @@ uwsgi:
     mount: /=server:app
     uid: dionysos
     gid: http
-    gevent: 1000
+    gevent: 10
     http-websockets: true
     disable-logging: true
