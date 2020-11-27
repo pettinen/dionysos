@@ -9,10 +9,10 @@ import psycopg2
 app = Flask(__name__, static_url_path='/')
 app.config.from_object('server.config')
 
-log = app.config['LOG_FILE']
+log = app.config.get('LOG_FILE')
 if app.config['TESTING']:
     logging.basicConfig(filename=log, filemode='w', level=logging.DEBUG)
-elif app.config['LOG_FILE']:
+elif log:
     logging.basicConfig(filename=log, level=logging.WARNING)
 
 socketio = SocketIO(app, path='/socket', cookie=None)
