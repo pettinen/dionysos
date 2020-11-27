@@ -4,6 +4,7 @@ import random
 from flask import g
 from flask_socketio import join_room
 from passlib.hash import bcrypt
+from threading import Timer
 
 from . import app, db, redis_db, socketio
 from .errors import DatabaseError, GameError
@@ -49,10 +50,10 @@ class Game:
             raise GameError('not-logged-in')
 
         name = name.strip()
-        if not name:
-            name = f"{g.user.name}{apos}s game"
         if len(name) > app.config['GAME_NAME_MAX_LENGTH']:
             raise ValueError('game-name-too-long')
+        elif not name:
+            name = f"{g.user.name}{apos}s game"
 
         if (max_players < app.config['MAX_PLAYERS_MIN']
                 or max_players > app.config['MAX_PLAYERS_MAX']):
@@ -64,7 +65,7 @@ class Game:
 
         cur = db.cursor()
 
-        # As if we're ever going to exhaust IDs
+        # Check ID exhaustion (as if that'd ever happen)
         cur.execute('SELECT count(*) FROM games;')
         max_game_ids = 58**app.config['GAME_ID_LENGTH']
         game_count, = cur.fetchone()
@@ -87,10 +88,10 @@ class Game:
             [id_, name, password_hash, g.user.id, max_players, remote])
         if cur.rowcount == 0:
             cur.close()
-            logging.warning(f"Failed to insert game {id_} into database")
+            logging.error(f"Failed to insert game {id_} into database")
             raise DatabaseError('insert-failed')
         elif cur.rowcount > 1:
-            pass # TODO: log this
+            logging.critical(f"Inserted multiple games with ID {id_} into database")
         cur.close()
 
         game = cls(id_)
@@ -98,7 +99,8 @@ class Game:
         return game
 
     def __init__(self, game_id):
-        if not isinstance(game_id, str):
+        if not isinstance(game_id, str) or len(game_id) != app.config['GAME_ID_LENGTH']:
+            logging.error(f"Tried to initialize a Game with a malformed ID {game_id}")
             raise ValueError('invalid-game-id')
         cur = db.cursor()
         cur.execute('''
@@ -108,21 +110,28 @@ class Game:
             cur.close()
             raise ValueError('invalid-game-id')
         elif cur.rowcount > 1:
-            pass # TODO: log this
+            logging.critical(f"Multiple games with ID {game_id} in database")
         self.id, self.name, self.password_hash, creator_id, self.max_players, \
             self.started, self.ended, self.remote = cur.fetchone()
 
         from .auth import User
         self.creator = User(creator_id)
+        self.counter = 0
         cur.close()
 
     def add_active_card(self, card, user):
+        if self.ended:
+            logging.error("Tried to add active card in an ended game")
+            return
+
+        self.counter += 1
         if user == 'all':
-            self.emit('active-card-added', {'cardID': card.id, 'userID': 'all'})
+            self.emit('active-card-added', {'cardID': card.id, 'userID': 'all', 'counter': self.counter})
         elif card.visibility == 'all':
-            self.emit('active-card-added', {'cardID': card.id, 'userID': user.id})
+            self.emit('active-card-added', {'cardID': card.id, 'userID': user.id, 'counter': self.counter})
         else:
             user.emit('active-card-added', {'cardID': card.id, 'userID': user.id})
+            self.emit('counter-updated', {'counter': self.counter})
 
         if user == 'all':
             key = self.redis_key('active-cards')
@@ -130,12 +139,12 @@ class Game:
         else:
             key = self.redis_key(f'user:{user.id}:active-cards')
             duration = card.duration
-        if redis_db.hset(key, card.id, duration) != 1:
-            pass # TODO: log this
+        redis_rv = redis_db.hset(key, card.id, duration)
+        if redis_rv != 1:
+            logging.error(f"Game.add_active_card added {redis_rv} fields to DB; expected 1")
 
     def add_player(self, user):
-        if self.ended:
-            raise GameError('game-ended')
+        # TODO: implement joining started games
         if self.started:
             raise GameError('game-started')
         if self.player_count >= self.max_players:
@@ -148,21 +157,24 @@ class Game:
             cur.close()
             raise DatabaseError('insert-failed')
         elif cur.rowcount > 1:
-            pass # TODO: log this
+            logging.critical("Game.add_player inserted multiple rows into users_games")
         cur.close()
 
+        self.counter += 1
         socketio.emit('game-updated', {
             'id': self.id,
             'playerCount': self.player_count
         })
         self.emit('game-joined', {
             'id': user.id,
-            'name': user.name
+            'name': user.name,
+            'counter': self.counter
         })
         join_room(self.room)
 
     def advance_turn(self, next_player=None):
         if self.ended:
+            logging.error("Tried to advance turn in an ended game")
             return
         if next_player is None:
             next_player = self.next_player
@@ -185,15 +197,21 @@ class Game:
         check_durations('all')
         check_durations(self.current_player)
 
-        turn_skips = redis_db.hget(self.redis_key('turn-skips'), self.current_player)
-        if turn_skips is not None and int(turn_skips) > 0:
+        def current_player_skips():
+            turn_skips = redis_db.hget(self.redis_key('turn-skips'), self.current_player)
+            if turn_skips is None:
+                return 0
+            return int(turn_skips)
+
+        while current_player_skips() > 0:
             self.skip_turns(-1, self.current_player)
             self.emit('turn-skipped', {
                 'userID': self.current_player,
-                'skipsLeft': int(turn_skips) - 1
+                'skipsLeft': current_player_skips() - 1
             })
             self.current_player = self.next_player
-        self.emit('new-turn', {'userID': self.current_player})
+        self.counter += 1
+        self.emit('new-turn', {'userID': self.current_player, 'counter': self.counter})
 
     @property
     def current_player(self):
@@ -207,23 +225,25 @@ class Game:
         redis_db.set(self.redis_key('current-player'), new_player_id)
 
     def delete(self):
-        """Do not use the object after calling this."""
-        keys = self.redis_key('*')
+        """Do not use the Game object after calling this."""
+        keys = redis_db.scan_iter(self.redis_key('*'))
         if keys:
             redis_db.delete(*keys)
         cur = db.cursor()
         cur.execute('DELETE FROM users_games WHERE game_id = %s;', [self.id])
         cur.execute('DELETE FROM games WHERE id = %s;', [self.id])
         if cur.rowcount > 1:
-            pass # TODO: log this
+            logging.error("Deleted multiple rows from games table")
         cur.close()
         socketio.emit('game-deleted', {'id': self.id})
 
     def discard(self, card, user):
         redis_db.rpush(self.redis_key('discard'), card.id)
+        self.counter += 1
         self.emit('card-discarded', {
             'cardID': card.id,
-            'userID': user.id
+            'userID': user.id,
+            'counter': self.counter
         })
 
     def draw_card(self):
@@ -279,12 +299,12 @@ class Game:
     def end(self):
         if self.ended:
             return
-        self.started = True
+        self.started = False
         self.ended = True
         cur = db.cursor()
-        cur.execute('UPDATE games SET ended = true WHERE id = %s;', [self.id])
+        cur.execute('UPDATE games SET started = false, ended = true WHERE id = %s;', [self.id])
         if cur.rowcount != 1:
-            pass # TODO: log this
+            logging.error(f"Game.end updated {cur.rowcount} rows; expected 1")
         self.emit('game-ended')
         cur.close()
 
@@ -426,7 +446,8 @@ class Game:
         redis_db.rpush(self.redis_key('player-order'), *player_ids)
 
         # Randomize deck
-        cur.execute('SELECT id FROM cards WHERE remote = true;')
+        #cur.execute('SELECT id FROM cards WHERE remote = true;')
+        cur.execute('SELECT id FROM cards;') # TODO: implement remote UI
         card_ids = [card_id for card_id, in cur]
         cur.close()
         random.shuffle(card_ids)
