@@ -11,6 +11,8 @@ LANGUAGES = ['en']
 DEFAULT_LANGUAGE = 'en'
 LANGUAGE_COOKIE = 'lang'
 LOG_FILE = 'dionysos.log'
+PEPPER_USER_PW = b'CHANGE THIS'
+PEPPER_GAME_PW = b'CHANGE THIS'
 PREFERRED_URL_SCHEME = 'https'
 PSYCOPG2_DB = 'dbname=dionysos'
 REDIS_URL = 'unix:///run/redis/redis.sock?db=0'

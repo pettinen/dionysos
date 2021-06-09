@@ -1,16 +1,25 @@
-from functools import wraps
 import logging
 import uuid
+from functools import wraps
+from typing import Optional
 
+import jwt
+from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 from flask import g, request
 from flask_socketio import leave_room
-from passlib.hash import bcrypt
-import jwt
 
 from . import app, db, redis_db, socketio
 from .errors import DatabaseError
 from .game import Game
 from .utils import fail, set_cookie
+
+
+_password_hasher = PasswordHasher()
+_peppers = {
+    "game": app.config["PEPPER_GAME_PW"],
+    "user": app.config["PEPPER_USER_PW"],
+}
 
 
 def _check_origin():
@@ -39,7 +48,7 @@ def check_csrf_data(arg):
     if request.cookies[app.config['CSRF_COOKIE']] != arg[app.config['CSRF_DATA_KEY']]:
         return fail('csrf-token-mismatch')
     return True
-
+i
 
 def check_csrf_header(func):
     @wraps(func)
@@ -54,6 +63,12 @@ def check_csrf_header(func):
             return fail('csrf-token-mismatch')
         return func(*args, **kwargs)
     return check_csrf
+
+
+def hash_password(password: str, type: str) -> str:
+    digest_type = app.config["HMAC_DIGEST"]
+    digest = hmac.digest(peppers[type], password.encode(), digest_type)
+    return _password_hasher.hash(digest)
 
 
 def login_optional(func):
@@ -149,7 +164,27 @@ def unset_jwt_cookie(response):
     set_cookie(response, app.config['JWT_COOKIE'], '', delete=True)
 
 
-class User():
+def verify_password(hash: str, password: str, type: str) -> Union[bool, str]:
+    """Verifies, and if needed, rehashes password.
+
+    Returns False if verification failed. If it succeeded, returns either True
+    or a string containing a new hash if the password had to be rehashed.
+    """
+
+    digest_type = app.config["HMAC_DIGEST"]
+    digest = hmac.digest(_peppers[type], password.encode(), digest_type)
+
+    try:
+        _password_hasher.verify(hash, digest)
+    except VerifyMismatchError:
+        return False
+
+    if _password_hasher.check_needs_rehash(hash):
+        return hash_password(password, type)
+    return True
+
+
+class User:
     def __init__(self, user_id):
         self.id = int(user_id)
         cur = db.cursor()

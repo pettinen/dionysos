@@ -1,10 +1,10 @@
 uwsgi:
-    daemonize: uwsgi.log
+    env: PYTHONDEVMODE=1
     socket: /run/dionysos/dionysos.sock
     chmod-socket: 660
     manage-script-name: true
     master: true
-    mount: /=server:app
+    mount: /=dionysos:app
     uid: dionysos
     gid: http
     gevent: 10
