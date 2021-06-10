@@ -1,7 +1,8 @@
+import hmac
 import logging
 import uuid
+from enum import Enum
 from functools import wraps
-from typing import Optional
 
 import jwt
 from argon2 import PasswordHasher
@@ -11,15 +12,17 @@ from flask_socketio import leave_room
 
 from . import app, db, redis_db, socketio
 from .errors import DatabaseError
-from .game import Game
 from .utils import fail, set_cookie
 
 
 _password_hasher = PasswordHasher()
-_peppers = {
-    "game": app.config["PEPPER_GAME_PW"],
-    "user": app.config["PEPPER_USER_PW"],
-}
+
+
+class PasswordType(Enum):
+    """Enum with password-type-specific peppers as values."""
+
+    GAME = app.config["PEPPER_GAME_PW"]
+    USER = app.config["PEPPER_USER_PW"]
 
 
 def _check_origin():
@@ -48,7 +51,7 @@ def check_csrf_data(arg):
     if request.cookies[app.config['CSRF_COOKIE']] != arg[app.config['CSRF_DATA_KEY']]:
         return fail('csrf-token-mismatch')
     return True
-i
+
 
 def check_csrf_header(func):
     @wraps(func)
@@ -65,9 +68,9 @@ def check_csrf_header(func):
     return check_csrf
 
 
-def hash_password(password: str, type: str) -> str:
+def hash_password(password: str, type: PasswordType) -> str:
     digest_type = app.config["HMAC_DIGEST"]
-    digest = hmac.digest(peppers[type], password.encode(), digest_type)
+    digest = hmac.digest(type.value, password.encode(), digest_type)
     return _password_hasher.hash(digest)
 
 
@@ -139,6 +142,10 @@ login_required = login_required_factory('flask')
 socket_login_required = login_required_factory('socketio')
 
 
+def password_needs_rehash(hash: str) -> bool:
+    return _password_hasher.check_needs_rehash(hash)
+
+
 def set_jwt_cookie(response, user):
     if user is None:
         unset_jwt_cookie(response)
@@ -164,24 +171,14 @@ def unset_jwt_cookie(response):
     set_cookie(response, app.config['JWT_COOKIE'], '', delete=True)
 
 
-def verify_password(hash: str, password: str, type: str) -> Union[bool, str]:
-    """Verifies, and if needed, rehashes password.
-
-    Returns False if verification failed. If it succeeded, returns either True
-    or a string containing a new hash if the password had to be rehashed.
-    """
-
+def verify_password(hash: str, password: str, type: PasswordType) -> bool:
     digest_type = app.config["HMAC_DIGEST"]
-    digest = hmac.digest(_peppers[type], password.encode(), digest_type)
+    digest = hmac.digest(type.value, password.encode(), digest_type)
 
     try:
-        _password_hasher.verify(hash, digest)
+        return _password_hasher.verify(hash, digest)
     except VerifyMismatchError:
         return False
-
-    if _password_hasher.check_needs_rehash(hash):
-        return hash_password(password, type)
-    return True
 
 
 class User:
@@ -201,6 +198,8 @@ class User:
 
     @property
     def current_game(self):
+        from .game import Game
+
         cur = db.cursor()
         cur.execute('SELECT game_id FROM users_games WHERE user_id = %s;', [self.id])
         if cur.rowcount > 1:
@@ -221,11 +220,13 @@ class User:
         if game.password_protected:
             if password is None:
                 raise ValueError('password-required')
-            if not bcrypt.verify(password.strip(), game.password_hash):
+            if not verify_password(game.password_hash, password.strip(), PasswordType.GAME):
                 raise ValueError('invalid-password')
         game.add_player(self)
 
     def leave_game(self):
+        from .game import Game
+
         cur = db.cursor()
         cur.execute(
             'DELETE FROM users_games WHERE user_id = %s'
@@ -245,5 +246,11 @@ class User:
             'name': self.name
         }
 
+    def update_password(self, new_password: str) -> None:
+        new_hash = hash_password(new_password, PasswordType.USER)
+        cur = db.cursor()
+        cur.execute("UPDATE users SET password_hash = %s WHERE id = %s;", [new_hash, self.id])
+        cur.close()
+
     def verify_password(self, password):
-        return bcrypt.verify(password, self.password_hash)
+        return verify_password(self.password_hash, password, PasswordType.USER)

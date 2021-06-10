@@ -23,6 +23,4 @@ db.autocommit = True
 
 redis = redis_db = FlaskRedis(app, decode_responses=True)
 
-password_hasher = PasswordHasher()
-
 from . import auth, handlers, views

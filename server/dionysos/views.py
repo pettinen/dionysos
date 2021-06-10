@@ -1,15 +1,16 @@
-from flask import g, jsonify, make_response, render_template, request
-from passlib.hash import bcrypt
+from flask import Response, g, jsonify, make_response, render_template, request
 
 from . import app, db, redis_db
 from .auth import (
+    PasswordType,
+    User,
     check_csrf_header,
+    hash_password,
     login_optional,
     login_required,
     set_jwt_cookie,
     set_csrf_cookie,
     unset_jwt_cookie,
-    User
 )
 from .game import Card, Game
 from .utils import fail, set_cookie
@@ -124,6 +125,9 @@ def login():
     if not user.verify_password(password):
         return fail('wrong-credentials')
 
+    if password_needs_rehash(password_hash):
+        user.update_password(password)
+
     response = jsonify({
         'success': True,
         'user': {
@@ -148,7 +152,7 @@ def logout():
 
 @app.route('/register', methods=['POST'])
 @check_csrf_header
-def register():
+def register() -> Response:
     data = request.get_json()
     if data is None:
         return fail('json-loading-failed')
@@ -174,7 +178,7 @@ def register():
         cur.close()
         return fail('user-exists')
 
-    password_hash = bcrypt.hash(password)
+    password_hash = hash_password(password, PasswordType.USER)
     cur.execute('INSERT INTO users (name, password_hash) VALUES (%s, %s) RETURNING id;',
         [username, password_hash])
     if cur.rowcount != 1:
@@ -195,5 +199,4 @@ def register():
     })
     set_jwt_cookie(response, user)
     set_csrf_cookie(response)
-    print(response)
     return response

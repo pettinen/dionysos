@@ -1,12 +1,12 @@
 INSERT INTO "users" ("name", "password_hash") VALUES
-    ('Doris', '$2b$12$Jc8RYDshkU.q8gOZRthJeOZWjj1.wnd0TKBdreYdPEcLqVg/iW2VO'),
-    ('Jorma', '$2b$12$wOAO2PZv9A8X0Hq3fGsULO7sPbCTic.A33F394HXrPskyH5MS3Gz2'),
-    ('Sisu', '$2b$12$tQshraLtl8zetRq7NLxbd.volWh0ewNzq1KrrEVNGwdxHz8fDIelW'),
-    ('Tapio', '$2b$12$E.edrKOIweVm98KFlmgRL.zwfkZPQh1kP8PkFo180PTnQ8fFgkJgS'),
-    ('Valdemar', '$2b$12$q8S0NpBFs63dcWBv2XlQDOT0DJinuiRI9o3kGIlN7RgRKjrjE5yia'),
+    ('Doris', '$argon2id$v=19$m=102400,t=2,p=8$RFtf9E1wyJMB1qXa5FLLUQ$bCcyhidFeTDEb0wq0akrng'),
+    ('Jorma', '$argon2id$v=19$m=102400,t=2,p=8$xZj45emcU4VzIia2Nr0mfA$wIKJAkkEyms2jnyHawd8rw'),
+    ('Sisu', '$argon2id$v=19$m=102400,t=2,p=8$8qtiF8xZp0zRuqRPTCWHKA$vOQ2LZhB2YacJThNbdO/Pg'),
+    ('Tapio', '$argon2id$v=19$m=102400,t=2,p=8$rO3njVKyfqp/pEq2IMLMNw$duqwyBO/mxBDFqmGNfbMaA'),
+    ('Valdemar', '$argon2id$v=19$m=102400,t=2,p=8$MnkE8PEKjDfCGPl1oharoA$rgsO5347kzWcooJeNCmtwg'),
 
     -- password: test
-    ('<em>xss test</em>', '$2b$12$7GzpoWinejbOjBPMmsVmZesv6EA2iVQJPymV6vqV8sqoVQBqzTbS2');
+    ('<em>xss test</em>', '$argon2id$v=19$m=102400,t=2,p=8$dvVz/ADWNiXJYn43JlOY2w$38WrL6XAm6UcBiKAONlLTQ');
 
 
 INSERT INTO "card_types" ("id", "name", "base_url") VALUES

@@ -3,10 +3,10 @@ import random
 
 from flask import g
 from flask_socketio import join_room
-from passlib.hash import bcrypt
 from threading import Timer
 
 from . import app, db, redis_db, socketio
+from .auth import PasswordType, hash_password
 from .errors import DatabaseError, GameError
 from .utils import apos, base58_random
 
@@ -61,7 +61,7 @@ class Game:
 
         password_hash = None
         if password is not None and password.strip():
-            password_hash = bcrypt.hash(password.strip())
+            password_hash = hash_password(password, PasswordType.GAME)
 
         cur = db.cursor()
 
