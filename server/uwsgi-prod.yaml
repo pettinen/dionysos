@@ -1,5 +1,5 @@
 uwsgi:
-    daemonize: uwsgi.log
+    daemonize: /var/log/dionysos/uwsgi.log
     socket: /run/dionysos/dionysos.sock
     chmod-socket: 660
     manage-script-name: true

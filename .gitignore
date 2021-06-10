@@ -1,5 +1,0 @@
-dist/
-__pycache__/
-node_modules/
-dionysos.log
-uwsgi.log
