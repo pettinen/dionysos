@@ -56,7 +56,7 @@ POSTGRES_PARAMS = "dbname=dionysos"
 REDIS_URL = "unix:///run/redis/redis.sock?db=0"
 
 
-# Limits
+# Input length limits
 
 GAME_NAME_LENGTH = {"min": 1, "max": 32}
 PASSWORD_LENGTH = {"min": 6, "max": 250}
@@ -65,8 +65,8 @@ USERNAME_LENGTH = {"min": 1, "max": 25}
 
 # Static paths
 
-CARDS_PATH = "/img/cards/"
 CARD_BASES_PATH = "/img/card-bases/"
+CARD_IMAGES_PATH = "/img/cards/"
 CARD_IMAGE_EXTENSION = "webp"
 
 

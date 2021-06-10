@@ -3,10 +3,10 @@
 ADMIN_CONTACT = '<a href="mailto:hi@jeremi.as">hi@jeremi.as</a>'
 APPLICATION_NAME = "Dionysos"
 APPLICATION_ROOT = "/"
-DEBUG = True
-ENV = "development"
+DEBUG = False
+ENV = "production"
 SERVER_NAME = "dionysos.jeremi.as"
-TESTING = True
+TESTING = False
 WEBSOCKET_PATH = "/socket"
 
 
@@ -56,7 +56,7 @@ POSTGRES_PARAMS = "dbname=dionysos"
 REDIS_URL = "unix:///run/redis/redis.sock?db=0"
 
 
-# Limits
+# Input length limits
 
 GAME_NAME_LENGTH = {"min": 1, "max": 32}
 PASSWORD_LENGTH = {"min": 6, "max": 250}

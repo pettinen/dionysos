@@ -2,5 +2,5 @@
 
 cd "$(dirname "$0")"
 
-killall -u dionysos uwsgi 2>/dev/null
-poetry run uwsgi --yaml uwsgi-dev.yaml
+killall -u "$USER" uwsgi 2>/dev/null
+poetry run uwsgi --yaml uwsgi-dev.yaml --pyargv "$(realpath config-dev.py)"

@@ -7,16 +7,19 @@ license = "ISC"
 
 [tool.poetry.dependencies]
 argon2-cffi = "^20.1.0"
-gevent = "^21.1.2"
-python = "^3.9"
 Flask = "^2.0.1"
 flask-redis = "^0.4.0"
 Flask-SocketIO = "^5.1.0"
+gevent = "^21.1.2"
 psycopg2 = "^2.8.6"
 PyJWT = "^2.1.0"
-uWSGI = "^2.0.19"
+python = "^3.9"
+uWSGI = {url = "https://github.com/pettinen/uwsgi/archive/refs/heads/uwsgi-2.0.tar.gz"}
+toml = "^0.10.2"
 
 [tool.poetry.dev-dependencies]
+black = "^21.5b2"
+mypy = "^0.901"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -22,15 +22,15 @@
         debug: {{ config.TESTING|tojson }},
         adminContact: {{ config.ADMIN_CONTACT|tojson }},
         defaultLanguage: {{ config.DEFAULT_LANGUAGE|tojson }},
-        csrfCookie: {{ config.CSRF_COOKIE|tojson }},
+        csrfCookie: {{ config.CSRF_COOKIE_NAME|tojson }},
         csrfDataKey: {{ config.CSRF_DATA_KEY|tojson }},
         csrfHeader: {{ config.CSRF_HEADER|tojson }},
-        maxGamesPerUser: {{ config.MAX_GAMES_PER_USER|tojson }},
+        maxGamesPerUser: {{ config.MAX_ACTIVE_GAMES_PER_USER|tojson }},
         maxPlayersDefault: {{ config.MAX_PLAYERS_DEFAULT|tojson}},
-        maxPlayersMin: {{ config.MAX_PLAYERS_MIN|tojson }},
-        maxPlayersMax: {{ config.MAX_PLAYERS_MAX|tojson }},
+        maxPlayersMin: {{ config.MAX_PLAYERS_LIMITS.min|tojson }},
+        maxPlayersMax: {{ config.MAX_PLAYERS_LIMITS.max|tojson }},
         minPlayersToStart: {{ config.MIN_PLAYERS_TO_START|tojson }},
-        passwordMinLength: {{ config.PASSWORD_MIN_LENGTH|tojson }},
+        passwordMinLength: {{ config.PASSWORD_LENGTH.min|tojson }},
       },
       paths: {
         index: {{ url_for('index')|tojson }},
@@ -40,8 +40,8 @@
         cards: {{ url_for('cards')|tojson }},
         game: id => {{ url_for('index', game_id='GAME_ID')|tojson }}.replace('GAME_ID', id),
         games: {{ url_for('games')|tojson }},
-        cardImgDir: {{ url_for('static', filename=config.CARDS_URL)|tojson }},
-        cardBaseDir: {{ url_for('static', filename=config.CARD_BASES_URL)|tojson }},
+        cardImgDir: {{ url_for('static', filename=config.CARD_IMAGES_PATH)|tojson }},
+        cardBaseDir: {{ url_for('static', filename=config.CARD_BASES_PATH)|tojson }},
         messages: lang => {{ url_for('static', filename='messages/LANG.json')|tojson }}.replace('LANG', lang)
       },
       initialUser: {% if g.user %}{
@@ -118,7 +118,7 @@
     <label>Password: <input type="text" data-bind="value: newGame.password"></label><br>
     <label>Max players:
       <select data-bind="value: newGame.maxPlayers">
-      {%- for n in range(config.MAX_PLAYERS_MIN, config.MAX_PLAYERS_MAX + 1) %}
+      {%- for n in range(config.MAX_PLAYERS_LIMITS.min, config.MAX_PLAYERS_LIMITS.max + 1) %}
         <option value="{{ n }}">{{ n }}</option>
       {%- endfor %}
       </select>
